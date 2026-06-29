@@ -6,19 +6,35 @@ import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 
 function ProtectedLayout() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isError } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!isLoading && !isError && !user) {
       navigate({ to: "/login" });
     }
-  }, [isLoading, user, navigate]);
+  }, [isLoading, isError, user, navigate]);
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <p className="text-gray-600 text-sm">Unable to connect. Please refresh the page.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-3 text-indigo-600 text-sm hover:underline"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
     );
   }

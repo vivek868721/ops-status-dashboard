@@ -1,14 +1,19 @@
-import { useNavigate } from "@tanstack/react-router";
-import { LogOut, LayoutDashboard, User } from "lucide-react";
+import { useState } from "react";
+import { LayoutDashboard, User, LogOut } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 export function DashboardPage() {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   async function handleLogout() {
-    await logout();
-    navigate({ to: "/login" });
+    setLogoutError(null);
+    try {
+      await logout();
+      // ProtectedLayout's useEffect redirects to /login once user is cleared
+    } catch {
+      setLogoutError("Logout failed. Please try again.");
+    }
   }
 
   return (
@@ -35,6 +40,13 @@ export function DashboardPage() {
           </div>
         </div>
       </header>
+
+      {/* Logout error */}
+      {logoutError && (
+        <div className="bg-red-50 border-b border-red-200 px-4 py-2 text-sm text-red-700 text-center">
+          {logoutError}
+        </div>
+      )}
 
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

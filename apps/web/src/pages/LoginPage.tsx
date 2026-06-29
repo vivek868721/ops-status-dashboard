@@ -35,7 +35,7 @@ export function LoginPage() {
     setServerError(null);
     try {
       await login(values.email, values.password);
-      navigate({ to: "/" });
+      // navigate is handled by the useEffect above once user is populated
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Login failed");
     }

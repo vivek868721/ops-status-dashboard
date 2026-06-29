@@ -4,7 +4,7 @@ import { fetchMe, apiLogin, apiLogout } from "../lib/api";
 export function useAuth() {
   const queryClient = useQueryClient();
 
-  const { data: user, isLoading } = useQuery({
+  const { data: user, isLoading, isError } = useQuery({
     queryKey: ["me"],
     queryFn: fetchMe,
     retry: false,
@@ -21,5 +21,5 @@ export function useAuth() {
     queryClient.setQueryData(["me"], null);
   }
 
-  return { user: user ?? null, isLoading, login, logout };
+  return { user: user ?? null, isLoading, isError, login, logout };
 }
