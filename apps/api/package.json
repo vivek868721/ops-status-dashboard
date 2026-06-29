@@ -10,16 +10,19 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "fastify": "^5.0.0",
     "@fastify/cookie": "^11.0.0",
     "@fastify/cors": "^10.0.0",
-    "drizzle-orm": "^0.38.0",
+    "bcryptjs": "^3.0.3",
+    "fastify": "^5.0.0",
     "postgres": "^3.4.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.3",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.0.0",
     "drizzle-kit": "^0.30.0",
+    "drizzle-orm": "^0.38.4",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }
