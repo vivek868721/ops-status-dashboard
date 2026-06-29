@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
 import { adminUsers } from "@ops/db";
 import { buildApp } from "../../app.js";
 import { createTestDb } from "../../test-helpers/db.js";

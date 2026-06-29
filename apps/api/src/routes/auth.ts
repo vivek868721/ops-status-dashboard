@@ -21,6 +21,7 @@ export async function authRoutes(app: FastifyInstance) {
       .from(adminUsers)
       .where(eq(adminUsers.id, session.adminUserId));
 
+    if (!user) return reply.status(401).send({ error: "Unauthorized" });
     return reply.send(user);
   });
 
@@ -32,7 +33,18 @@ export async function authRoutes(app: FastifyInstance) {
     reply.clearCookie("session", { path: "/" }).send({ ok: true });
   });
 
-  app.post("/api/auth/login", async (req, reply) => {
+  app.post("/api/auth/login", {
+    schema: {
+      body: {
+        type: "object",
+        required: ["email", "password"],
+        properties: {
+          email: { type: "string" },
+          password: { type: "string" },
+        },
+      },
+    },
+  }, async (req, reply) => {
     const { email, password } = req.body as { email: string; password: string };
 
     const [user] = await app.db

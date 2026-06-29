@@ -1,12 +1,18 @@
 import Fastify from "fastify";
 import cookie from "@fastify/cookie";
+import type { PgDatabase } from "drizzle-orm/pg-core/db";
 import { authRoutes } from "./routes/auth.js";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AppDb = any;
+export type AppDb = PgDatabase<any, any, any>;
 
-export function buildApp(db: AppDb) {
-  const app = Fastify({ logger: false });
+declare module "fastify" {
+  interface FastifyInstance {
+    db: AppDb;
+  }
+}
+
+export function buildApp(db: AppDb, opts: { logger?: boolean } = {}) {
+  const app = Fastify({ logger: opts.logger ?? false });
 
   app.register(cookie, {
     secret: process.env.SESSION_SECRET ?? "dev-secret-change-in-production",

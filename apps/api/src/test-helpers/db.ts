@@ -13,14 +13,14 @@ export async function createTestDb() {
       id SERIAL PRIMARY KEY,
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS sessions (
       id SERIAL PRIMARY KEY,
       admin_user_id INTEGER NOT NULL REFERENCES admin_users(id),
       token TEXT NOT NULL UNIQUE,
-      expires_at TIMESTAMPTZ NOT NULL
+      expires_at TIMESTAMP NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS user_tenant_roles (
@@ -28,7 +28,7 @@ export async function createTestDb() {
       user_id INTEGER NOT NULL REFERENCES admin_users(id),
       tenant_id BIGINT NOT NULL,
       role TEXT NOT NULL CHECK (role IN ('executive', 'it_manager', 'employee')),
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
   `);
 
