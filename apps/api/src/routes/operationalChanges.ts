@@ -5,6 +5,14 @@ import { requireAuth } from "../middleware/auth.js";
 import { requireTenantAccess } from "../middleware/tenant.js";
 import { requirePermission } from "../middleware/permission.js";
 
+function toCsv(rows: typeof jsmView.$inferSelect[]): string {
+  const cols = ["issueKey", "title", "statusCategory", "assigneeName", "isOntime", "totalLeadtime", "cancelReason", "stopReason", "issueCreateDate", "resolutionDate"] as const;
+  return [
+    cols.join(","),
+    ...rows.map((r) => cols.map((c) => JSON.stringify(r[c] ?? "")).join(",")),
+  ].join("\n");
+}
+
 export async function operationalChangeRoutes(app: FastifyInstance) {
   app.get(
     "/api/operational-changes",
@@ -23,8 +31,10 @@ export async function operationalChangeRoutes(app: FastifyInstance) {
       if (q.from) conditions.push(sql`${jsmView.issueCreateDate} >= ${q.from}::timestamp`);
       if (q.to) conditions.push(sql`${jsmView.issueCreateDate} <= ${q.to}::timestamp`);
 
+      // Employee: scope to own JSM assignee ID only
       if (role === "employee") {
-        conditions.push(eq(jsmView.assigneeId, String(req.user.id)));
+        const jsmId = req.user.jsmAssigneeId;
+        conditions.push(jsmId ? eq(jsmView.assigneeId, jsmId) : sql`1 = 0`);
       }
 
       const where = and(...conditions);
@@ -74,6 +84,24 @@ export async function operationalChangeRoutes(app: FastifyInstance) {
         stopReasons: stopRows.map((r) => ({ reason: r.reason, count: Number(r.count) })),
         items,
       });
+    },
+  );
+
+  app.get(
+    "/api/operational-changes/export",
+    { preHandler: [requireAuth, requireTenantAccess, requirePermission("export_csv")] },
+    async (req, reply) => {
+      const { tenantId, role } = req.tenant;
+      const conditions = [eq(jsmView.tenantId, tenantId), eq(jsmView.issueType, "OC")];
+      if (role === "employee") {
+        const jsmId = req.user.jsmAssigneeId;
+        conditions.push(jsmId ? eq(jsmView.assigneeId, jsmId) : sql`1 = 0`);
+      }
+      const rows = await app.db.select().from(jsmView).where(and(...conditions)).orderBy(jsmView.issueCreateDate);
+      return reply
+        .header("Content-Type", "text/csv")
+        .header("Content-Disposition", "attachment; filename=operational-changes.csv")
+        .send(toCsv(rows));
     },
   );
 }

@@ -5,6 +5,14 @@ import { requireAuth } from "../middleware/auth.js";
 import { requireTenantAccess } from "../middleware/tenant.js";
 import { requirePermission } from "../middleware/permission.js";
 
+function toCsv(rows: typeof jsmView.$inferSelect[]): string {
+  const cols = ["issueKey", "title", "statusCategory", "urgencyYn", "assigneeName", "isOntime", "totalLeadtime", "issueCreateDate", "resolutionDate"] as const;
+  return [
+    cols.join(","),
+    ...rows.map((r) => cols.map((c) => JSON.stringify(r[c] ?? "")).join(",")),
+  ].join("\n");
+}
+
 export async function serviceRequestRoutes(app: FastifyInstance) {
   app.get(
     "/api/service-requests",
@@ -21,13 +29,15 @@ export async function serviceRequestRoutes(app: FastifyInstance) {
 
       if (q.status) conditions.push(eq(jsmView.statusCategory, q.status));
       if (q.urgency) conditions.push(eq(jsmView.urgencyYn, q.urgency));
-      if (q.assignee) conditions.push(eq(jsmView.assigneeId, q.assignee));
       if (q.from) conditions.push(sql`${jsmView.issueCreateDate} >= ${q.from}::timestamp`);
       if (q.to) conditions.push(sql`${jsmView.issueCreateDate} <= ${q.to}::timestamp`);
 
-      // Employee: scope to own issues only
+      // Employee: scope to own JSM assignee ID only — overrides ?assignee= param
       if (role === "employee") {
-        conditions.push(eq(jsmView.assigneeId, String(req.user.id)));
+        const jsmId = req.user.jsmAssigneeId;
+        conditions.push(jsmId ? eq(jsmView.assigneeId, jsmId) : sql`1 = 0`);
+      } else if (q.assignee) {
+        conditions.push(eq(jsmView.assigneeId, q.assignee));
       }
 
       const where = and(...conditions);
@@ -73,6 +83,24 @@ export async function serviceRequestRoutes(app: FastifyInstance) {
         topAssignees: assigneeRows.map((r) => ({ name: r.name, count: Number(r.count) })),
         items,
       });
+    },
+  );
+
+  app.get(
+    "/api/service-requests/export",
+    { preHandler: [requireAuth, requireTenantAccess, requirePermission("export_csv")] },
+    async (req, reply) => {
+      const { tenantId, role } = req.tenant;
+      const conditions = [eq(jsmView.tenantId, tenantId), eq(jsmView.issueType, "SR")];
+      if (role === "employee") {
+        const jsmId = req.user.jsmAssigneeId;
+        conditions.push(jsmId ? eq(jsmView.assigneeId, jsmId) : sql`1 = 0`);
+      }
+      const rows = await app.db.select().from(jsmView).where(and(...conditions)).orderBy(jsmView.issueCreateDate);
+      return reply
+        .header("Content-Type", "text/csv")
+        .header("Content-Disposition", "attachment; filename=service-requests.csv")
+        .send(toCsv(rows));
     },
   );
 }

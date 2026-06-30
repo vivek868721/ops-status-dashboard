@@ -56,6 +56,8 @@ export async function overviewRoutes(app: FastifyInstance) {
         );
       const urgentOpen = Number(urgentRow?.cnt ?? 0);
 
+      // "Overdue" = currently open past their due date. This is a backlog metric, not an SLA
+      // recalculation — ADR-0001 forbids recalculating is_ontime, not using due_date for this.
       const [overdueRow] = await db
         .select({ cnt: count() })
         .from(jsmView)

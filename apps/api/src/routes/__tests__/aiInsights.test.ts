@@ -81,7 +81,7 @@ describe("AI Insights API", () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json()).toHaveLength(10);
+      expect(res.json().analyses).toHaveLength(10);
     });
 
     it("returns empty array when no analyses exist", async () => {
@@ -92,7 +92,7 @@ describe("AI Insights API", () => {
         headers: { "x-tenant-id": "1" },
       });
       expect(res.statusCode).toBe(200);
-      expect(res.json()).toEqual([]);
+      expect(res.json().analyses).toEqual([]);
     });
 
     it("scopes to requesting tenant only", async () => {
@@ -108,7 +108,7 @@ describe("AI Insights API", () => {
         cookies: { session: sessionToken },
         headers: { "x-tenant-id": "1" },
       });
-      expect(res.json()).toHaveLength(0);
+      expect(res.json().analyses).toHaveLength(0);
     });
   });
 

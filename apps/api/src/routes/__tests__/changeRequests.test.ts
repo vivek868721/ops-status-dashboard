@@ -60,8 +60,8 @@ describe("GET /api/change-requests", () => {
     expect(body.slaRate).toBeCloseTo(50);
     expect(body.byCategory).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ category: "Standard", count: 1 }),
-        expect.objectContaining({ category: "Emergency", count: 1 }),
+        expect.objectContaining({ category: "Standard", total: 1, ontime: 1, overdue: 0 }),
+        expect.objectContaining({ category: "Emergency", total: 1, ontime: 0, overdue: 1 }),
       ]),
     );
   });

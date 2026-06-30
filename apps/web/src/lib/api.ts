@@ -41,7 +41,7 @@ export type SRData = {
 export type CRData = {
   slaRate: number;
   items: (IssueItem & { chgCategory: string })[];
-  byCategory: { category: string; total: number; ontime: number; overdue: number }[];
+  byCategory: { category: string | null; total: number; ontime: number; overdue: number }[];
 };
 
 export type OCData = {

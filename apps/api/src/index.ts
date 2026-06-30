@@ -1,6 +1,9 @@
 import { createDb } from "@ops/db";
 import { buildApp } from "./app.js";
 
+if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
+if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is required");
+
 export const { db, end: closeDb } = createDb();
 
 const app = buildApp(db, { logger: true });

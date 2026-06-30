@@ -14,6 +14,7 @@ export async function createTestDb() {
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       role TEXT DEFAULT NULL CHECK (role IN ('super_admin')),
+      jsm_assignee_id TEXT DEFAULT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
 
@@ -35,7 +36,8 @@ export async function createTestDb() {
       user_id INTEGER NOT NULL REFERENCES admin_users(id),
       tenant_id BIGINT NOT NULL,
       role TEXT NOT NULL CHECK (role IN ('executive', 'it_manager', 'employee')),
-      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      UNIQUE(user_id, tenant_id)
     );
 
     CREATE TABLE IF NOT EXISTS role_permissions (

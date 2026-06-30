@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { adminUsers, tenants, userTenantRoles } from "@ops/db";
 import { requireAuth } from "../middleware/auth.js";
@@ -71,9 +71,14 @@ export async function adminRoutes(app: FastifyInstance) {
       tenantId: number;
       role: "executive" | "it_manager" | "employee";
     };
+    // Upsert: if (user, tenant) already exists update the role rather than inserting a duplicate
     const [row] = await app.db
       .insert(userTenantRoles)
       .values({ userId, tenantId, role })
+      .onConflictDoUpdate({
+        target: [userTenantRoles.userId, userTenantRoles.tenantId],
+        set: { role },
+      })
       .returning();
     return reply.status(201).send(row);
   });

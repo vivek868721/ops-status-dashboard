@@ -89,15 +89,14 @@ describe("GET /api/service-requests", () => {
   });
 
   it("employee only sees their own issues", async () => {
-    // create a second employee user
     const hash = await bcrypt.hash("password", 10);
     const [emp] = await db
       .insert(adminUsers)
-      .values({ email: "emp@example.com", passwordHash: hash })
+      .values({ email: "emp@example.com", passwordHash: hash, jsmAssigneeId: "emp-jsm-abc" })
       .returning({ id: adminUsers.id });
     await db.insert(userTenantRoles).values({ userId: emp.id, tenantId: 1, role: "employee" });
 
-    await seedJsmRow(db, { tenantId: 1, issueType: "SR", issueKey: "SR-1", assigneeId: String(emp.id) });
+    await seedJsmRow(db, { tenantId: 1, issueType: "SR", issueKey: "SR-1", assigneeId: "emp-jsm-abc" });
     await seedJsmRow(db, { tenantId: 1, issueType: "SR", issueKey: "SR-2", assigneeId: "someone-else" });
 
     const loginRes = await app.inject({

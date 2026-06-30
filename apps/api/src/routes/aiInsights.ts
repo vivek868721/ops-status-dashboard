@@ -30,7 +30,7 @@ export async function aiInsightRoutes(app: FastifyInstance) {
         .where(eq(aiInsights.tenantId, tenantId))
         .orderBy(desc(aiInsights.generatedAt))
         .limit(10);
-      return reply.send(rows);
+      return reply.send({ analyses: rows });
     },
   );
 

@@ -1,10 +1,11 @@
-import { pgTable, serial, integer, text, timestamp, bigint, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, bigint, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const adminUsers = pgTable("admin_users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   role: text("role", { enum: ["super_admin"] }),
+  jsmAssigneeId: text("jsm_assignee_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -27,7 +28,9 @@ export const userTenantRoles = pgTable("user_tenant_roles", {
   tenantId: bigint("tenant_id", { mode: "number" }).notNull(),
   role: text("role", { enum: ["executive", "it_manager", "employee"] }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  uniqueIndex("utr_user_tenant_uniq").on(t.userId, t.tenantId),
+]);
 
 export const rolePermissions = pgTable("role_permissions", {
   id: serial("id").primaryKey(),
