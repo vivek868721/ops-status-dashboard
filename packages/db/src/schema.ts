@@ -38,7 +38,9 @@ export const rolePermissions = pgTable("role_permissions", {
   permissionKey: text("permission_key").notNull(),
   enabled: boolean("enabled").notNull().default(true),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  uniqueIndex("rp_role_key_uniq").on(t.role, t.permissionKey),
+]);
 
 // Read-only JSM view — never modified by this app
 export const jsmView = pgTable("v_jsm_sr_cr_oc", {

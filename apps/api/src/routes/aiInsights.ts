@@ -59,21 +59,31 @@ export async function aiInsightRoutes(app: FastifyInstance) {
         .filter(Boolean)
         .join("\n");
 
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-      const message = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2048,
-        messages: [{ role: "user", content: prompt }],
-      });
-
-      const text =
-        message.content[0].type === "text" ? message.content[0].text : "{}";
-
       let parsed: { insights?: unknown; charts?: unknown } = {};
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        parsed = { insights: [], charts: [] };
+
+      if (!process.env.ANTHROPIC_API_KEY) {
+        parsed = {
+          insights: [
+            { title: "Demo insight", description: "Set ANTHROPIC_API_KEY to enable real AI analysis.", severity: "info" },
+          ],
+          charts: [],
+        };
+      } else {
+        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        const message = await anthropic.messages.create({
+          model: "claude-sonnet-4-6",
+          max_tokens: 2048,
+          messages: [{ role: "user", content: prompt }],
+        });
+
+        const text =
+          message.content[0].type === "text" ? message.content[0].text : "{}";
+
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          parsed = { insights: [], charts: [] };
+        }
       }
 
       const [record] = await db
