@@ -33,6 +33,7 @@ describe("AI Insights API", () => {
   let sessionToken: string;
 
   beforeEach(async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key";
     ({ db, client } = await createTestDb());
     app = buildApp(db);
     await app.ready();
@@ -58,6 +59,7 @@ describe("AI Insights API", () => {
   });
 
   afterEach(async () => {
+    delete process.env.ANTHROPIC_API_KEY;
     await app.close();
     await client.close();
     vi.clearAllMocks();
