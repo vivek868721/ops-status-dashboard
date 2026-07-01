@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import bcrypt from "bcryptjs";
-import { adminUsers, tenants, userTenantRoles } from "@ops/db";
+import { adminUsers, tenants } from "@ops/db";
 import { buildApp } from "../../app.js";
-import { createTestDb, seedDefaultPermissions, seedJsmRow } from "../../test-helpers/db.js";
+import { createTestDb, seedDefaultPermissions, seedJsmRow, seedUserTenantPermission } from "../../test-helpers/db.js";
 
 type Db = Awaited<ReturnType<typeof createTestDb>>["db"];
 
@@ -13,7 +13,7 @@ async function setup(db: Db) {
     .values({ email: "user@example.com", passwordHash: hash })
     .returning({ id: adminUsers.id });
   await db.insert(tenants).values({ id: 1, name: "Acme" });
-  await db.insert(userTenantRoles).values({ userId: user.id, tenantId: 1, role: "it_manager" });
+  await seedUserTenantPermission(db, user.id, 1, "it_manager");
   await seedDefaultPermissions(db);
   return user.id;
 }
@@ -47,7 +47,7 @@ describe("GET /api/operational-changes", () => {
       method: "GET",
       url: `/api/operational-changes${query}`,
       cookies: { session: sessionToken },
-      headers: { "x-tenant-id": "1" },
+      headers: { "x-tenant-id": "1", "x-permission": "it_manager" },
     });
   }
 

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { adminUsers, tenants, userTenantRoles } from "@ops/db";
+import { adminUsers, tenants, userTenantRoles, userPermissions } from "@ops/db";
 import { requireAuth } from "../middleware/auth.js";
 import { requireSuperAdmin } from "../middleware/superAdmin.js";
 
@@ -58,7 +58,8 @@ export async function adminRoutes(app: FastifyInstance) {
     return reply.status(204).send();
   });
 
-  // ── User-Tenant Roles ────────────────────────────────────────────────────
+  // ── User-Tenant Memberships ───────────────────────────────────────────────
+  // systemRole: tenant_admin | operator | member (administrative role in that tenant)
 
   app.get("/api/admin/user-tenant-roles", { preHandler }, async (_req, reply) => {
     const rows = await app.db.select().from(userTenantRoles).orderBy(userTenantRoles.id);
@@ -66,18 +67,17 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   app.post("/api/admin/user-tenant-roles", { preHandler }, async (req, reply) => {
-    const { userId, tenantId, role } = req.body as {
+    const { userId, tenantId, systemRole } = req.body as {
       userId: number;
       tenantId: number;
-      role: "executive" | "it_manager" | "employee";
+      systemRole: "tenant_admin" | "operator" | "member";
     };
-    // Upsert: if (user, tenant) already exists update the role rather than inserting a duplicate
     const [row] = await app.db
       .insert(userTenantRoles)
-      .values({ userId, tenantId, role })
+      .values({ userId, tenantId, systemRole })
       .onConflictDoUpdate({
         target: [userTenantRoles.userId, userTenantRoles.tenantId],
-        set: { role },
+        set: { systemRole },
       })
       .returning();
     return reply.status(201).send(row);
@@ -86,6 +86,36 @@ export async function adminRoutes(app: FastifyInstance) {
   app.delete("/api/admin/user-tenant-roles/:id", { preHandler }, async (req, reply) => {
     const { id } = req.params as { id: string };
     await app.db.delete(userTenantRoles).where(eq(userTenantRoles.id, Number(id)));
+    return reply.status(204).send();
+  });
+
+  // ── User Permissions ──────────────────────────────────────────────────────
+  // permission: executive | it_manager | employee (data-access level, global per user)
+
+  app.get("/api/admin/user-permissions", { preHandler }, async (_req, reply) => {
+    const rows = await app.db.select().from(userPermissions).orderBy(userPermissions.id);
+    return reply.send(rows);
+  });
+
+  app.post("/api/admin/user-permissions", { preHandler }, async (req, reply) => {
+    const { userId, permission } = req.body as {
+      userId: number;
+      permission: "executive" | "it_manager" | "employee";
+    };
+    const [row] = await app.db
+      .insert(userPermissions)
+      .values({ userId, permission })
+      .onConflictDoUpdate({
+        target: [userPermissions.userId, userPermissions.permission],
+        set: { permission },
+      })
+      .returning();
+    return reply.status(201).send(row);
+  });
+
+  app.delete("/api/admin/user-permissions/:id", { preHandler }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    await app.db.delete(userPermissions).where(eq(userPermissions.id, Number(id)));
     return reply.status(204).send();
   });
 }

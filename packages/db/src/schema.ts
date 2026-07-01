@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, timestamp, bigint, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, bigint, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const adminUsers = pgTable("admin_users", {
   id: serial("id").primaryKey(),
@@ -22,16 +22,29 @@ export const tenants = pgTable("tenants", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Tenant membership + administrative role per tenant
 export const userTenantRoles = pgTable("user_tenant_roles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => adminUsers.id),
   tenantId: bigint("tenant_id", { mode: "number" }).notNull(),
-  role: text("role", { enum: ["executive", "it_manager", "employee"] }).notNull(),
+  systemRole: text("system_role", { enum: ["tenant_admin", "operator", "member"] }).notNull().default("member"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   uniqueIndex("utr_user_tenant_uniq").on(t.userId, t.tenantId),
 ]);
 
+// Data-access permissions — independent of tenant, global per user
+// Executive: overview only | IT Manager: full access | Employee: own records only
+export const userPermissions = pgTable("user_permissions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => adminUsers.id),
+  permission: text("permission", { enum: ["executive", "it_manager", "employee"] }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("up_user_perm_uniq").on(t.userId, t.permission),
+]);
+
+// Feature gates: maps permission level → feature key → enabled
 export const rolePermissions = pgTable("role_permissions", {
   id: serial("id").primaryKey(),
   role: text("role", { enum: ["executive", "it_manager", "employee"] }).notNull(),

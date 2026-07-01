@@ -4,7 +4,7 @@ import { adminUsers, sessions } from "@ops/db";
 
 declare module "fastify" {
   interface FastifyRequest {
-    user: { id: number; email: string; jsmAssigneeId: string | null };
+    user: { id: number; email: string; jsmAssigneeId: string | null; systemRole: string | null };
   }
 }
 
@@ -22,11 +22,16 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
   if (!session) return reply.status(401).send({ error: "Unauthorized" });
 
   const [user] = await db
-    .select({ id: adminUsers.id, email: adminUsers.email, jsmAssigneeId: adminUsers.jsmAssigneeId })
+    .select({ id: adminUsers.id, email: adminUsers.email, jsmAssigneeId: adminUsers.jsmAssigneeId, role: adminUsers.role })
     .from(adminUsers)
     .where(eq(adminUsers.id, session.adminUserId));
 
   if (!user) return reply.status(401).send({ error: "Unauthorized" });
 
-  req.user = { ...user, jsmAssigneeId: user.jsmAssigneeId ?? null };
+  req.user = {
+    id: user.id,
+    email: user.email,
+    jsmAssigneeId: user.jsmAssigneeId ?? null,
+    systemRole: user.role ?? null,
+  };
 }

@@ -1,19 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import bcrypt from "bcryptjs";
-import { adminUsers, tenants, userTenantRoles } from "@ops/db";
+import { adminUsers, tenants } from "@ops/db";
 import { buildApp } from "../../app.js";
-import { createTestDb, seedDefaultPermissions, seedJsmRow } from "../../test-helpers/db.js";
+import { createTestDb, seedDefaultPermissions, seedJsmRow, seedUserTenantPermission } from "../../test-helpers/db.js";
 
 type Db = Awaited<ReturnType<typeof createTestDb>>["db"];
 
-async function setup(db: Db, role: "it_manager" | "employee" = "it_manager") {
+async function setup(db: Db, permission: "it_manager" | "employee" = "it_manager") {
   const hash = await bcrypt.hash("password", 10);
   const [user] = await db
     .insert(adminUsers)
     .values({ email: "user@example.com", passwordHash: hash })
     .returning({ id: adminUsers.id });
   await db.insert(tenants).values({ id: 1, name: "Acme" });
-  await db.insert(userTenantRoles).values({ userId: user.id, tenantId: 1, role });
+  await seedUserTenantPermission(db, user.id, 1, permission);
   await seedDefaultPermissions(db);
   return user.id;
 }
@@ -23,13 +23,12 @@ describe("GET /api/service-requests", () => {
   let client: Awaited<ReturnType<typeof createTestDb>>["client"];
   let app: ReturnType<typeof buildApp>;
   let sessionToken: string;
-  let userId: number;
 
   beforeEach(async () => {
     ({ db, client } = await createTestDb());
     app = buildApp(db);
     await app.ready();
-    userId = await setup(db);
+    await setup(db);
     const r = await app.inject({
       method: "POST",
       url: "/api/auth/login",
@@ -48,7 +47,7 @@ describe("GET /api/service-requests", () => {
       method: "GET",
       url: `/api/service-requests${query}`,
       cookies: { session: sessionToken },
-      headers: { "x-tenant-id": "1" },
+      headers: { "x-tenant-id": "1", "x-permission": "it_manager" },
     });
   }
 
@@ -94,7 +93,7 @@ describe("GET /api/service-requests", () => {
       .insert(adminUsers)
       .values({ email: "emp@example.com", passwordHash: hash, jsmAssigneeId: "emp-jsm-abc" })
       .returning({ id: adminUsers.id });
-    await db.insert(userTenantRoles).values({ userId: emp.id, tenantId: 1, role: "employee" });
+    await seedUserTenantPermission(db, emp.id, 1, "employee");
 
     await seedJsmRow(db, { tenantId: 1, issueType: "SR", issueKey: "SR-1", assigneeId: "emp-jsm-abc" });
     await seedJsmRow(db, { tenantId: 1, issueType: "SR", issueKey: "SR-2", assigneeId: "someone-else" });
@@ -110,7 +109,7 @@ describe("GET /api/service-requests", () => {
       method: "GET",
       url: "/api/service-requests",
       cookies: { session: empToken },
-      headers: { "x-tenant-id": "1" },
+      headers: { "x-tenant-id": "1", "x-permission": "employee" },
     });
     expect(res.json().items).toHaveLength(1);
     expect(res.json().items[0].issueKey).toBe("SR-1");

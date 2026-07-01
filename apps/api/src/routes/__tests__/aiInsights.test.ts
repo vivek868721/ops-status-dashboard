@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import bcrypt from "bcryptjs";
-import { adminUsers, tenants, userTenantRoles, aiInsights } from "@ops/db";
+import { adminUsers, tenants, aiInsights } from "@ops/db";
 import { buildApp } from "../../app.js";
-import { createTestDb, seedDefaultPermissions, seedJsmRow } from "../../test-helpers/db.js";
+import { createTestDb, seedDefaultPermissions, seedJsmRow, seedUserTenantPermission } from "../../test-helpers/db.js";
 
 // Mock Anthropic SDK at the module boundary — the sole external API mock in the project
 const mockCreate = vi.hoisted(() => vi.fn());
@@ -14,14 +14,14 @@ vi.mock("@anthropic-ai/sdk", () => ({
 
 type Db = Awaited<ReturnType<typeof createTestDb>>["db"];
 
-async function setup(db: Db, role: "it_manager" | "employee" | "executive" = "it_manager") {
+async function setup(db: Db, permission: "it_manager" | "employee" | "executive" = "it_manager") {
   const hash = await bcrypt.hash("password", 10);
   const [user] = await db
     .insert(adminUsers)
     .values({ email: "user@example.com", passwordHash: hash })
     .returning({ id: adminUsers.id });
   await db.insert(tenants).values({ id: 1, name: "Acme" });
-  await db.insert(userTenantRoles).values({ userId: user.id, tenantId: 1, role });
+  await seedUserTenantPermission(db, user.id, 1, permission);
   await seedDefaultPermissions(db);
   return user.id;
 }
@@ -79,7 +79,7 @@ describe("AI Insights API", () => {
         method: "GET",
         url: "/api/ai-insights",
         cookies: { session: sessionToken },
-        headers: { "x-tenant-id": "1" },
+        headers: { "x-tenant-id": "1", "x-permission": "it_manager" },
       });
 
       expect(res.statusCode).toBe(200);
@@ -91,7 +91,7 @@ describe("AI Insights API", () => {
         method: "GET",
         url: "/api/ai-insights",
         cookies: { session: sessionToken },
-        headers: { "x-tenant-id": "1" },
+        headers: { "x-tenant-id": "1", "x-permission": "it_manager" },
       });
       expect(res.statusCode).toBe(200);
       expect(res.json().analyses).toEqual([]);
@@ -108,7 +108,7 @@ describe("AI Insights API", () => {
         method: "GET",
         url: "/api/ai-insights",
         cookies: { session: sessionToken },
-        headers: { "x-tenant-id": "1" },
+        headers: { "x-tenant-id": "1", "x-permission": "it_manager" },
       });
       expect(res.json().analyses).toHaveLength(0);
     });
@@ -122,7 +122,7 @@ describe("AI Insights API", () => {
         method: "POST",
         url: "/api/ai-insights/analyze",
         cookies: { session: sessionToken },
-        headers: { "x-tenant-id": "1" },
+        headers: { "x-tenant-id": "1", "x-permission": "it_manager" },
         payload: {},
       });
 
@@ -140,7 +140,7 @@ describe("AI Insights API", () => {
         method: "POST",
         url: "/api/ai-insights/analyze",
         cookies: { session: sessionToken },
-        headers: { "x-tenant-id": "1" },
+        headers: { "x-tenant-id": "1", "x-permission": "it_manager" },
         payload: { customQuery: "Focus on urgent tickets" },
       });
 
@@ -150,13 +150,13 @@ describe("AI Insights API", () => {
       expect(promptText).toContain("Focus on urgent tickets");
     });
 
-    it("returns 403 for employee role", async () => {
+    it("returns 403 for employee permission (view_ai_insights disabled)", async () => {
       const hash = await bcrypt.hash("password", 10);
       const [emp] = await db
         .insert(adminUsers)
         .values({ email: "emp@example.com", passwordHash: hash })
         .returning({ id: adminUsers.id });
-      await db.insert(userTenantRoles).values({ userId: emp.id, tenantId: 1, role: "employee" });
+      await seedUserTenantPermission(db, emp.id, 1, "employee");
 
       const loginRes = await app.inject({
         method: "POST",
@@ -169,7 +169,7 @@ describe("AI Insights API", () => {
         method: "POST",
         url: "/api/ai-insights/analyze",
         cookies: { session: empToken },
-        headers: { "x-tenant-id": "1" },
+        headers: { "x-tenant-id": "1", "x-permission": "employee" },
         payload: {},
       });
       expect(res.statusCode).toBe(403);

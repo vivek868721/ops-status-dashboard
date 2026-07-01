@@ -1,8 +1,8 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { adminUsers, sessions, tenants, userTenantRoles, rolePermissions, aiInsights, jsmView } from "@ops/db";
+import { adminUsers, sessions, tenants, userTenantRoles, userPermissions, rolePermissions, aiInsights, jsmView } from "@ops/db";
 
-const schema = { adminUsers, sessions, tenants, userTenantRoles, rolePermissions, aiInsights };
+const schema = { adminUsers, sessions, tenants, userTenantRoles, userPermissions, rolePermissions, aiInsights };
 
 export async function createTestDb() {
   const client = new PGlite();
@@ -35,9 +35,17 @@ export async function createTestDb() {
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES admin_users(id),
       tenant_id BIGINT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('executive', 'it_manager', 'employee')),
+      system_role TEXT NOT NULL DEFAULT 'member' CHECK (system_role IN ('tenant_admin', 'operator', 'member')),
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       UNIQUE(user_id, tenant_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_permissions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES admin_users(id),
+      permission TEXT NOT NULL CHECK (permission IN ('executive', 'it_manager', 'employee')),
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      UNIQUE(user_id, permission)
     );
 
     CREATE TABLE IF NOT EXISTS role_permissions (
@@ -92,7 +100,7 @@ export async function createTestDb() {
 }
 
 type Db = Awaited<ReturnType<typeof createTestDb>>["db"];
-type Role = "executive" | "it_manager" | "employee";
+type Permission = "executive" | "it_manager" | "employee";
 
 const PERMISSION_KEYS = [
   "view_overview",
@@ -103,7 +111,7 @@ const PERMISSION_KEYS = [
   "export_csv",
 ] as const;
 
-const DEFAULT_PERMISSIONS: Record<Role, Record<(typeof PERMISSION_KEYS)[number], boolean>> = {
+const DEFAULT_PERMISSIONS: Record<Permission, Record<(typeof PERMISSION_KEYS)[number], boolean>> = {
   executive: {
     view_overview: true,
     view_service_requests: false,
@@ -131,7 +139,7 @@ const DEFAULT_PERMISSIONS: Record<Role, Record<(typeof PERMISSION_KEYS)[number],
 };
 
 export async function seedDefaultPermissions(db: Db) {
-  const rows = (["executive", "it_manager", "employee"] as Role[]).flatMap((role) =>
+  const rows = (["executive", "it_manager", "employee"] as Permission[]).flatMap((role) =>
     PERMISSION_KEYS.map((key) => ({
       role,
       permissionKey: key,
@@ -139,6 +147,24 @@ export async function seedDefaultPermissions(db: Db) {
     })),
   );
   await db.insert(rolePermissions).values(rows);
+}
+
+/** Helper: assign a user to a tenant + grant them a data-access permission. */
+export async function seedUserTenantPermission(
+  db: Db,
+  userId: number,
+  tenantId: number,
+  permission: Permission,
+  systemRole: "tenant_admin" | "operator" | "member" = "member",
+) {
+  await db
+    .insert(userTenantRoles)
+    .values({ userId, tenantId, systemRole })
+    .onConflictDoNothing();
+  await db
+    .insert(userPermissions)
+    .values({ userId, permission })
+    .onConflictDoNothing();
 }
 
 export interface JsmRow {

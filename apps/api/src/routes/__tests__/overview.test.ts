@@ -1,24 +1,22 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import bcrypt from "bcryptjs";
-import { adminUsers, tenants, userTenantRoles, rolePermissions } from "@ops/db";
+import { adminUsers, tenants, rolePermissions } from "@ops/db";
 import { seedJsmRow } from "../../test-helpers/db.js";
 import { buildApp } from "../../app.js";
-import { createTestDb, seedDefaultPermissions } from "../../test-helpers/db.js";
+import { createTestDb, seedDefaultPermissions, seedUserTenantPermission } from "../../test-helpers/db.js";
 
 type Db = Awaited<ReturnType<typeof createTestDb>>["db"];
 
-async function setupUser(db: Db, role: "executive" | "it_manager" | "employee" = "it_manager") {
+async function setupUser(db: Db, permission: "executive" | "it_manager" | "employee" = "it_manager") {
   const hash = await bcrypt.hash("password", 10);
   const [user] = await db
     .insert(adminUsers)
     .values({ email: "admin@example.com", passwordHash: hash })
     .returning({ id: adminUsers.id });
   await db.insert(tenants).values({ id: 1, name: "Acme Corp" });
-  await db.insert(userTenantRoles).values({ userId: user.id, tenantId: 1, role });
+  await seedUserTenantPermission(db, user.id, 1, permission);
   return user.id;
 }
-
-const TENANT_HEADER = { "x-tenant-id": "1" };
 
 describe("GET /api/overview/stats — requirePermission", () => {
   let db: Db;
@@ -48,74 +46,56 @@ describe("GET /api/overview/stats — requirePermission", () => {
 
   it("returns 200 when the role has the permission enabled", async () => {
     await setupUser(db, "it_manager");
-    await db.insert(rolePermissions).values({
-      role: "it_manager",
-      permissionKey: "view_overview",
-      enabled: true,
-    });
+    await db.insert(rolePermissions).values({ role: "it_manager", permissionKey: "view_overview", enabled: true });
     sessionToken = await login();
 
     const res = await app.inject({
       method: "GET",
       url: "/api/overview/stats",
       cookies: { session: sessionToken },
-      headers: TENANT_HEADER,
+      headers: { "x-tenant-id": "1", "x-permission": "it_manager" },
     });
-
     expect(res.statusCode).toBe(200);
   });
 
   it("returns 403 when the role has the permission disabled", async () => {
     await setupUser(db, "it_manager");
-    await db.insert(rolePermissions).values({
-      role: "it_manager",
-      permissionKey: "view_overview",
-      enabled: false,
-    });
+    await db.insert(rolePermissions).values({ role: "it_manager", permissionKey: "view_overview", enabled: false });
     sessionToken = await login();
 
     const res = await app.inject({
       method: "GET",
       url: "/api/overview/stats",
       cookies: { session: sessionToken },
-      headers: TENANT_HEADER,
+      headers: { "x-tenant-id": "1", "x-permission": "it_manager" },
     });
-
     expect(res.statusCode).toBe(403);
   });
 
   it("returns 200 when no permission entry exists (allow by default)", async () => {
     await setupUser(db, "it_manager");
-    // No role_permissions rows at all
     sessionToken = await login();
 
     const res = await app.inject({
       method: "GET",
       url: "/api/overview/stats",
       cookies: { session: sessionToken },
-      headers: TENANT_HEADER,
+      headers: { "x-tenant-id": "1", "x-permission": "it_manager" },
     });
-
     expect(res.statusCode).toBe(200);
   });
 
-  it("returns 403 for executive accessing overview when seeded defaults are applied", async () => {
+  it("returns 403 for executive when view_overview is disabled", async () => {
     await setupUser(db, "executive");
-    // executive has view_overview=false in defaults
-    await db.insert(rolePermissions).values({
-      role: "executive",
-      permissionKey: "view_overview",
-      enabled: false,
-    });
+    await db.insert(rolePermissions).values({ role: "executive", permissionKey: "view_overview", enabled: false });
     sessionToken = await login();
 
     const res = await app.inject({
       method: "GET",
       url: "/api/overview/stats",
       cookies: { session: sessionToken },
-      headers: TENANT_HEADER,
+      headers: { "x-tenant-id": "1", "x-permission": "executive" },
     });
-
     expect(res.statusCode).toBe(403);
   });
 
@@ -128,9 +108,8 @@ describe("GET /api/overview/stats — requirePermission", () => {
       method: "GET",
       url: "/api/overview/stats",
       cookies: { session: sessionToken },
-      headers: TENANT_HEADER,
+      headers: { "x-tenant-id": "1", "x-permission": "it_manager" },
     });
-
     expect(res.statusCode).toBe(200);
   });
 });
@@ -140,6 +119,8 @@ describe("GET /api/overview/stats — data", () => {
   let client: Awaited<ReturnType<typeof createTestDb>>["client"];
   let app: ReturnType<typeof buildApp>;
   let sessionToken: string;
+
+  const HEADERS = { "x-tenant-id": "1", "x-permission": "it_manager" };
 
   beforeEach(async () => {
     ({ db, client } = await createTestDb());
@@ -165,7 +146,7 @@ describe("GET /api/overview/stats — data", () => {
       method: "GET",
       url: "/api/overview/stats",
       cookies: { session: sessionToken },
-      headers: TENANT_HEADER,
+      headers: HEADERS,
     });
   }
 
@@ -187,7 +168,7 @@ describe("GET /api/overview/stats — data", () => {
     const body = (await get()).json();
     expect(body.openSR).toBe(2);
     expect(body.openCR).toBe(1);
-    expect(body.openOC).toBe(0); // Done = not open
+    expect(body.openOC).toBe(0);
   });
 
   it("returns urgentOpen count", async () => {
@@ -229,6 +210,6 @@ describe("GET /api/overview/stats — data", () => {
     await seedJsmRow(db, { tenantId: 2, issueType: "SR", issueKey: "SR-99", statusCategory: "In Progress" });
 
     const body = (await get()).json();
-    expect(body.openSR).toBe(0); // tenant 2's data not visible to tenant 1
+    expect(body.openSR).toBe(0);
   });
 });

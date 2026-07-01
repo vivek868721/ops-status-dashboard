@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import bcrypt from "bcryptjs";
-import { adminUsers, tenants, userTenantRoles } from "@ops/db";
+import { adminUsers, tenants, userTenantRoles, userPermissions } from "@ops/db";
 import { buildApp } from "../../app.js";
 import { createTestDb } from "../../test-helpers/db.js";
 
@@ -173,7 +173,7 @@ describe("Super-Admin API", () => {
     });
   });
 
-  describe("User-Tenant role assignments", () => {
+  describe("User-Tenant membership assignments", () => {
     let adminToken: string;
     let userId: number;
 
@@ -184,19 +184,19 @@ describe("Super-Admin API", () => {
       await db.insert(tenants).values({ id: 1, name: "Acme" });
     });
 
-    it("POST /api/admin/user-tenant-roles assigns a role", async () => {
+    it("POST /api/admin/user-tenant-roles assigns a systemRole", async () => {
       const res = await app.inject({
         method: "POST",
         url: "/api/admin/user-tenant-roles",
         cookies: { session: adminToken },
-        payload: { userId, tenantId: 1, role: "it_manager" },
+        payload: { userId, tenantId: 1, systemRole: "operator" },
       });
       expect(res.statusCode).toBe(201);
-      expect(res.json()).toMatchObject({ userId, tenantId: 1, role: "it_manager" });
+      expect(res.json()).toMatchObject({ userId, tenantId: 1, systemRole: "operator" });
     });
 
     it("GET /api/admin/user-tenant-roles returns all assignments", async () => {
-      await db.insert(userTenantRoles).values({ userId, tenantId: 1, role: "employee" });
+      await db.insert(userTenantRoles).values({ userId, tenantId: 1, systemRole: "member" });
 
       const res = await app.inject({
         method: "GET",
@@ -210,12 +210,60 @@ describe("Super-Admin API", () => {
     it("DELETE /api/admin/user-tenant-roles/:id removes an assignment", async () => {
       const [row] = await db
         .insert(userTenantRoles)
-        .values({ userId, tenantId: 1, role: "employee" })
+        .values({ userId, tenantId: 1, systemRole: "member" })
         .returning({ id: userTenantRoles.id });
 
       const res = await app.inject({
         method: "DELETE",
         url: `/api/admin/user-tenant-roles/${row.id}`,
+        cookies: { session: adminToken },
+      });
+      expect(res.statusCode).toBe(204);
+    });
+  });
+
+  describe("User permissions assignments", () => {
+    let adminToken: string;
+    let userId: number;
+
+    beforeEach(async () => {
+      await createUser(db, "admin@example.com", true);
+      adminToken = await login(app, "admin@example.com");
+      userId = await createUser(db, "user@example.com");
+    });
+
+    it("POST /api/admin/user-permissions assigns a permission", async () => {
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/admin/user-permissions",
+        cookies: { session: adminToken },
+        payload: { userId, permission: "it_manager" },
+      });
+      expect(res.statusCode).toBe(201);
+      expect(res.json()).toMatchObject({ userId, permission: "it_manager" });
+    });
+
+    it("GET /api/admin/user-permissions returns all permissions", async () => {
+      await db.insert(userPermissions).values({ userId, permission: "executive" });
+
+      const res = await app.inject({
+        method: "GET",
+        url: "/api/admin/user-permissions",
+        cookies: { session: adminToken },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toHaveLength(1);
+    });
+
+    it("DELETE /api/admin/user-permissions/:id removes a permission", async () => {
+      const [row] = await db
+        .insert(userPermissions)
+        .values({ userId, permission: "employee" })
+        .returning({ id: userPermissions.id });
+
+      const res = await app.inject({
+        method: "DELETE",
+        url: `/api/admin/user-permissions/${row.id}`,
         cookies: { session: adminToken },
       });
       expect(res.statusCode).toBe(204);

@@ -5,7 +5,7 @@
 An internal Operations Status Dashboard for the ops team. Reads from the `v_jsm_sr_cr_oc` JSM PostgreSQL view and presents SLA compliance, issue trends, and AI-generated insights in a role-appropriate, tenant-scoped interface.
 
 - **Full PRD**: `docs/PRD-operations-status-dashboard.md`
-- **Architectural decisions**: `docs/adr/` (ADR-0001 through ADR-0005)
+- **Architectural decisions**: `docs/adr/` (ADR-0001 through ADR-0006)
 - **GitHub issues**: #1–#10 at `https://github.com/vivek868721/ops-status-dashboard/issues`
 
 ---
@@ -21,7 +21,7 @@ ops-status-dashboard/
 │   └── db/           Drizzle ORM schema + createDb() factory
 ├── docs/
 │   ├── PRD-operations-status-dashboard.md
-│   └── adr/          ADR-0001 through ADR-0005
+│   └── adr/          ADR-0001 through ADR-0006
 ├── turbo.json
 └── CLAUDE.md
 ```
@@ -89,7 +89,7 @@ PORT=3001
 NODE_ENV=development
 ```
 
-The app fails fast at startup if `DATABASE_URL` or `ANTHROPIC_API_KEY` is missing.
+The app fails fast at startup if `DATABASE_URL` is missing. `ANTHROPIC_API_KEY` is optional — AI Insights returns demo data when absent.
 
 ---
 
@@ -98,13 +98,26 @@ The app fails fast at startup if `DATABASE_URL` or `ANTHROPIC_API_KEY` is missin
 Managed by Drizzle ORM in `packages/db/src/schema.ts`. Migrations via `drizzle-kit`.
 
 ```
-admin_users       id, email, password_hash, role (null | 'super_admin'), created_at
+admin_users       id, email, password_hash, role (null | 'super_admin'), jsm_assignee_id, created_at
 sessions          id, admin_user_id, token, expires_at
 tenants           id (BIGINT), name, created_at
-user_tenant_roles id, user_id, tenant_id (FK→tenants), role ('executive'|'it_manager'|'employee'), created_at
+user_tenant_roles id, user_id, tenant_id, system_role ('tenant_admin'|'operator'|'member'), created_at
+user_permissions  id, user_id, permission ('executive'|'it_manager'|'employee'), created_at
 role_permissions  id, role, permission_key, enabled, updated_at
-ai_insights       id, tenant_id, generated_at, input_snapshot (JSONB), insights_json (JSONB), charts_json (JSONB), custom_query
+ai_insights       id, tenant_id, generated_at, input_snapshot, insights_json, charts_json, custom_query
 ```
+
+**Role model** (see ADR-0006):
+- `admin_users.role = 'super_admin'` — global system administrator
+- `user_tenant_roles.system_role` — administrative role *within* a tenant (tenant_admin / operator / member)
+- `user_permissions.permission` — data-access level, **global per user, independent of tenant** (executive / it_manager / employee)
+
+Every tenant-scoped API request carries two headers:
+```
+X-Tenant-Id: <id>         — which tenant to query
+X-Permission: <level>     — which data-access level to apply
+```
+Frontend shows these as two independent dropdowns; user picks any valid combination.
 
 **JSM view** (read-only, not managed by Drizzle):
 ```
@@ -122,8 +135,8 @@ v_jsm_sr_cr_oc    tenant_id, issue_type ('SR'|'CR'|'OC'), issue_key, title,
 
 Every protected route runs these preHandlers in order:
 
-1. **`requireAuth`** — validates `session` cookie. Returns 401 if missing or expired.
-2. **`requireTenantAccess`** — reads `X-Tenant-Id` header, queries `user_tenant_roles`, attaches `req.tenant = { tenantId, role }`. Returns 403 if not authorized.
+1. **`requireAuth`** — validates `session` cookie, attaches `req.user = { id, email, jsmAssigneeId, systemRole }`. Returns 401 if missing or expired.
+2. **`requireTenantAccess`** — reads `X-Tenant-Id` + `X-Permission` headers; verifies tenant membership (via `user_tenant_roles`) and permission assignment (via `user_permissions`); attaches `req.tenant = { tenantId, role, systemRole }`. Super-admin bypasses both checks. Returns 400/403 on failure.
 3. **`requirePermission(key)`** — checks `role_permissions` for `(req.tenant.role, key)`. Returns 403 if disabled.
 
 Super-admin routes (`/api/admin/*`) replace step 2+3 with:
@@ -137,7 +150,8 @@ Super-admin routes (`/api/admin/*`) replace step 2+3 with:
 |-----|---------|
 | ADR-0001 | Trust `is_ontime` from the JSM view — never recalculate from `due_date` vs `resolution_date` |
 | ADR-0002 | Separate pages for SR / CR / OC — not a single unified filtered list |
-| ADR-0003 | Per-tenant role assignments — one user can have different roles for different tenants |
+| ADR-0003 | Per-tenant role assignments (superseded by ADR-0006) |
+| ADR-0006 | Tenant selection and permission level are independent; two separate dropdowns + two request headers |
 | ADR-0004 | AI agent uses pre-built JSON snapshot + predefined tool functions — no raw SQL, no cross-tenant data |
 | ADR-0005 | Dashboard is read-only + CSV export only — no PDF, no write-back to JSM |
 
@@ -170,16 +184,41 @@ Super-admin routes (`/api/admin/*`) replace step 2+3 with:
 
 ---
 
-## Role Visibility Defaults
+## Role & Permission Model
 
-| Role | Accessible pages | Notes |
-|------|-----------------|-------|
-| `super_admin` | `/admin/*` only | System-level, no tenant context |
-| `executive` | Overview (`/`) | Configurable via `role_permissions` |
+### System Roles (who can do what administratively)
+
+| system_role | Scope | Capability |
+|-------------|-------|------------|
+| `super_admin` | Global (`admin_users.role`) | All tenants, all permissions, all admin pages |
+| `tenant_admin` | Per-tenant | Manages users/permissions within that tenant |
+| `operator` | Per-tenant | Operational; can be in multiple tenants |
+| `member` | Per-tenant | Basic membership |
+
+### Data-Access Permissions (what data they see — independent of tenant)
+
+| permission | Pages accessible | Notes |
+|------------|-----------------|-------|
+| `executive` | Overview only | Configurable via `role_permissions` |
 | `it_manager` | All pages + CSV export + AI Insights | Full access |
-| `employee` | SR, CR, OC — own issues only | `assignee_id` filter enforced server-side |
+| `employee` | SR, CR, OC — own records only | `assignee_id` filter enforced server-side |
 
-Defaults are seeded in `role_permissions`. Super-admin can change them at runtime.
+Defaults seeded in `role_permissions`. Super-admin can change them at runtime.
+
+### Test User Accounts (local dev)
+
+| Email | Password | System role | Permissions | Tenants |
+|-------|----------|-------------|-------------|---------|
+| admin@ops.local | admin123 | super_admin | all | all |
+| alice.admin@ops.local | pass1234 | tenant_admin | it_manager, executive | Acme, GlobalTech |
+| bob.admin@ops.local | pass1234 | tenant_admin | it_manager | Nexus, Zenith |
+| carol.op@ops.local | pass1234 | operator | it_manager, employee | Acme, Nexus, Aurora |
+| dave.op@ops.local | pass1234 | operator | executive, employee | GlobalTech, Zenith |
+| eve.user@ops.local | pass1234 | member | employee | Acme |
+| frank.user@ops.local | pass1234 | member | executive | Acme, Aurora |
+| grace.user@ops.local | pass1234 | member | it_manager, employee | Nexus |
+
+**Startup script**: `./dev-start.sh` — starts PostgreSQL, API (3001), Web (5173).
 
 ---
 
