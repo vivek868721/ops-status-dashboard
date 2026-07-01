@@ -197,11 +197,13 @@ Super-admin routes (`/api/admin/*`) replace step 2+3 with:
 
 ### Data-Access Permissions (what data they see — independent of tenant)
 
-| permission | Pages accessible | Notes |
-|------------|-----------------|-------|
-| `executive` | Overview only | Configurable via `role_permissions` |
-| `it_manager` | All pages + CSV export + AI Insights | Full access |
-| `employee` | SR, CR, OC — own records only | `assignee_id` filter enforced server-side |
+| permission | JSM pages | Batch pages | Notes |
+|------------|-----------|-------------|-------|
+| `executive` | Overview only | Batch dashboard (read-only) | Configurable via `role_permissions` |
+| `it_manager` | All pages + CSV export + AI Insights | Full batch access: jobs, history, raw data, notifications, health | Full access |
+| `employee` | SR, CR, OC — own records only | — | `assignee_id` filter enforced server-side |
+
+`batch_manage_config` (collectors, credentials, parsers) is restricted to `super_admin` regardless of permission level.
 
 Defaults seeded in `role_permissions`. Super-admin can change them at runtime.
 
@@ -224,17 +226,33 @@ Defaults seeded in `role_permissions`. Super-admin can change them at runtime.
 
 ## Issue Progress
 
+### JSM Operations Module
 | # | Title | Status |
 |---|-------|--------|
 | 1 | Monorepo Scaffolding | ✅ Done |
 | 2 | Authentication | ✅ Done |
-| 3 | Tenant Selector + Role Enforcement | 🔵 Next |
-| 4 | Super-Admin — User & Tenant Management | ⬜ |
-| 5 | Role Permissions Matrix | ⬜ |
-| 6 | Overview Dashboard | ⬜ |
-| 7 | Service Requests Page | ⬜ |
-| 8 | Change Requests Page | ⬜ |
-| 9 | Operational Changes Page | ⬜ |
-| 10 | AI Insights Page | ⬜ |
+| 3 | Tenant Selector + Role Enforcement | ✅ Done |
+| 4 | Super-Admin — User & Tenant Management | ✅ Done |
+| 5 | Role Permissions Matrix | ✅ Done |
+| 6 | Overview Dashboard | ✅ Done |
+| 7 | Service Requests Page | ✅ Done |
+| 8 | Change Requests Page | ✅ Done |
+| 9 | Operational Changes Page | ✅ Done |
+| 10 | AI Insights Page | ✅ Done |
+
+### Batch Monitoring Module
+| # | Title | Status |
+|---|-------|--------|
+| 15 | Batch DB Schema & Data Access Layer | ⬜ |
+| 16 | Batch Dashboard (FR-1) | ⬜ |
+| 17 | Job Management Module (FR-2) | ⬜ |
+| 18 | Execution History Module (FR-3) | ⬜ |
+| 19 | Raw Data Viewer (FR-4) | ⬜ |
+| 20 | Parsed Data Viewer (FR-5) | ⬜ |
+| 21 | Integration Configuration Module (FR-6) | ⬜ |
+| 22 | Notification Module (FR-7) | ⬜ |
+| 23 | Audit Log Module (FR-8) | ⬜ |
+| 24 | System Health Monitor (FR-9) | ⬜ |
 
 Master PRD issue: #11 on GitHub.
+Batch SRS source: `docs/SRS-cportal-batch-dashboard.md`

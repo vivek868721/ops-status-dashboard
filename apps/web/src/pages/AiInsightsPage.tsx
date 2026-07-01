@@ -127,17 +127,17 @@ function AnalysisView({ analysis }: { analysis: Analysis }) {
 }
 
 export function AiInsightsPage() {
-  const { tenant } = useTenant();
+  const { selectedTenant } = useTenant();
   const queryClient = useQueryClient();
   const [customQuery, setCustomQuery] = useState("");
   const [activeId, setActiveId] = useState<number | null>(null);
 
-  const { data, isLoading } = useQuery(aiInsightsQueryOptions);
+  const { data, isLoading } = useQuery(aiInsightsQueryOptions());
 
   const { mutate: runAnalysis, isPending, error: analyzeError } = useMutation({
     mutationFn: () => api.aiInsights.analyze(customQuery.trim() || undefined),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: aiInsightsQueryOptions.queryKey });
+      queryClient.invalidateQueries({ queryKey: aiInsightsQueryOptions().queryKey });
       setActiveId(result.id);
       setCustomQuery("");
     },
@@ -152,7 +152,7 @@ export function AiInsightsPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-gray-900">AI Insights</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{tenant?.name}</p>
+        <p className="text-sm text-gray-500 mt-0.5">{selectedTenant?.name}</p>
       </div>
 
       {/* Analyze panel */}

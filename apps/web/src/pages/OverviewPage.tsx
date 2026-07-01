@@ -35,8 +35,8 @@ function Skeleton({ className = "" }: { className?: string }) {
 }
 
 export function OverviewPage() {
-  const { tenant } = useTenant();
-  const { data, isLoading, isError, error, refetch, isFetching, dataUpdatedAt } = useQuery(overviewQueryOptions);
+  const { selectedTenant, selectedPermission } = useTenant();
+  const { data, isLoading, isError, error, refetch, isFetching, dataUpdatedAt } = useQuery(overviewQueryOptions());
 
   const lastUpdated = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -49,8 +49,8 @@ export function OverviewPage() {
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Overview</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {tenant?.name ?? `Tenant ${tenant?.tenantId}`}
-            {tenant?.role === "executive" && " · Executive view"}
+            {selectedTenant?.name ?? `Tenant ${selectedTenant?.tenantId}`}
+            {selectedPermission === "executive" && " · Executive view"}
           </p>
         </div>
         <div className="flex items-center gap-3">

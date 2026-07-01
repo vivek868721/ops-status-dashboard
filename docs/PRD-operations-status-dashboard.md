@@ -1,12 +1,23 @@
-# PRD: Operations Status Dashboard + AI Agent
+# PRD: CPORTAL Operations & Batch Monitoring Dashboard
 
 ## Problem Statement
 
-The internal operations team has no centralized view of their JSM service operations data. To check SLA compliance, issue volumes, or operational health, team members must log into JSM directly and construct ad-hoc queries — a context-switching overhead that delays decision-making and obscures trends across Service Requests (SR), Change Requests (CR), and Operational Changes (OC). There is no role-appropriate view that surfaces the right level of detail for each team member (executive summary vs. assignee-level detail), no AI-powered analysis of patterns and anomalies, and no way to see metrics scoped to a specific tenant without manual filtering.
+The internal operations team faces two distinct but related problems:
+
+**JSM Operations Visibility**: There is no centralized view of JSM service operations data. To check SLA compliance, issue volumes, or operational health, team members must log into JSM directly — a context-switching overhead that delays decision-making and obscures trends across Service Requests (SR), Change Requests (CR), and Operational Changes (OC). There is no role-appropriate view for each team member, no AI-powered analysis of patterns, and no way to see metrics scoped to a specific tenant.
+
+**Batch Processing Observability**: The CPORTAL Batch processing system (Spring Boot) collects data from multiple external integrations, processes it, and stores the output in PostgreSQL — but it has no UI. Operators must query the database directly to diagnose failures, check job health, or manage schedules. There is no centralized dashboard for batch execution monitoring, job management, raw data inspection, or configuration management.
 
 ## Solution
 
-An internal Operations Status Dashboard that reads directly from the `v_jsm_sr_cr_oc` JSM view in real-time and presents SLA compliance, issue trends, and AI-generated insights in a role-appropriate, tenant-scoped interface. The dashboard is read-only — actions on issues remain in JSM. A super-admin layer manages which users can access which tenants and with what role. An embedded AI agent (Claude) analyzes the current tenant's data and generates actionable insight cards and custom Recharts-compatible chart configurations.
+A unified internal dashboard that:
+
+1. **JSM Operations Dashboard** — reads from the `v_jsm_sr_cr_oc` view and presents SLA compliance, issue trends, and AI-generated insights in a role-appropriate, tenant-scoped interface.
+2. **Batch Monitoring Dashboard** — reads from CPORTAL batch tables (`tb_batch_history`, `tb_integration_collector`, etc.) and provides execution monitoring, job management, raw/parsed data viewing, integration configuration, notifications, audit logging, and system health.
+
+Both modules share the same auth, tenant model, role/permission system, and frontend/backend stack.
+
+---
 
 ## User Stories
 
@@ -14,229 +25,389 @@ An internal Operations Status Dashboard that reads directly from the `v_jsm_sr_c
 
 1. As an ops team member, I want to log in with my email and password, so that I can access the dashboard securely.
 2. As an ops team member, I want my session to persist across browser refreshes, so that I do not have to log in repeatedly.
-3. As an ops team member, I want to be redirected to the login page when my session expires, so that I am never silently logged out without feedback.
-4. As an ops team member, I want to log out from any page, so that I can end my session on shared machines.
+3. As an ops team member, I want to be redirected to the login page when my session expires.
+4. As an ops team member, I want to log out from any page.
 
 ### Tenant Selection & Role Enforcement
 
-5. As an ops team member, I want to select a tenant from a dropdown after logging in, so that I see data scoped to that organization only.
-6. As an ops team member, I want the tenant dropdown to show only the tenants I have been granted access to, so that I cannot see data I am not authorized to view.
-7. As an IT Manager, I want to see all pages and filters for the selected tenant, so that I have a complete operational picture.
-8. As an Executive, I want to see only KPI summary cards and SLA trend charts, so that I get a high-level view without operational noise.
-9. As an Employee, I want to see only issues assigned to me (`assignee_id`), so that I can focus on my own workload without cross-team visibility.
-10. As any user, I want my role to be evaluated against the currently selected tenant, so that switching tenants correctly updates my permissions.
+5. As an ops team member, I want a tenant dropdown in the header to scope data to a specific organization.
+6. As an ops team member, I want a permission-level dropdown (Executive / IT Manager / Employee) independent of the tenant selector.
+7. As an IT Manager, I want to see all pages and filters for the selected tenant.
+8. As an Executive, I want to see only KPI summary cards without operational detail.
+9. As an Employee, I want to see only issues assigned to me (`assignee_id` filter, server-side).
 
 ### Overview Dashboard (`/`)
 
-11. As an IT Manager, I want to see a SLA Compliance Rate (% of `is_ontime = true`) across all issue types, so that I can assess overall operational health at a glance.
-12. As an IT Manager, I want to see Open Issues counts broken down by type (SR / CR / OC), so that I understand current backlog distribution.
-13. As an IT Manager, I want to see Urgent Open Issues count (`urgency_yn = 'Y'` and unresolved), so that I can prioritize immediate attention.
-14. As an IT Manager, I want to see Overdue Issues count (past `due_date` and unresolved), so that I know what is at risk.
-15. As an IT Manager, I want to see Average Resolution Time (`total_leadtime` average), so that I can benchmark operational efficiency.
-16. As any user, I want the dashboard to auto-refresh every 5 minutes, so that I see current data without manually reloading.
-17. As any user, I want a "last updated" timestamp on the overview, so that I know how fresh the data is.
-18. As any user, I want loading skeletons during data fetch, so that the page does not feel broken while loading.
-19. As any user, I want an empty state if no data is available for the selected tenant, so that I am not shown a blank screen.
-20. As any user, I want an error state if the API call fails, so that I know data could not be loaded rather than assuming there is none.
+10. As an IT Manager, I want SLA Compliance Rate, Open Issues by type, Urgent/Overdue counts, and Avg Resolution Time KPI cards.
+11. As any user, I want 5-minute auto-refresh, a "last updated" timestamp, loading skeletons, empty state, and error state.
 
 ### Service Requests Page (`/service-requests`)
 
-21. As an IT Manager, I want to see a SLA compliance rate for SRs only, so that I can assess SR performance independently.
-22. As an IT Manager, I want to see a filterable list of SRs by `status_category`, `service_level`, `urgency_yn`, and assignee, so that I can isolate specific segments.
-23. As an IT Manager, I want to see average `total_leadtime` trend over the selected date range, so that I can track whether resolution speed is improving or degrading.
-24. As an IT Manager, I want to see top assignees by SR volume, so that I can identify overloaded team members.
-25. As any user, I want a default date range of the last 30 days, so that I see a meaningful window of data without waiting for the full history.
-26. As any user, I want to change the date range (last 7 / 30 / 90 days or custom), so that I can investigate specific periods.
-27. As an IT Manager, I want to export the current filtered SR list as CSV, so that I can perform further analysis in a spreadsheet.
+12. As an IT Manager, I want a filterable SR list with SLA rate, resolution trend, and top assignees chart.
+13. As an IT Manager, I want to export filtered SRs as CSV.
 
 ### Change Requests Page (`/change-requests`)
 
-28. As an IT Manager, I want to see a SLA compliance rate for CRs only, so that I can assess change management performance.
-29. As an IT Manager, I want to see a filterable list of CRs by `status_category`, `chg_category`, and `service_level`, so that I can segment by change type.
-30. As an IT Manager, I want to see a breakdown of CRs by `chg_category` as a bar or pie chart, so that I understand which change types dominate the workload.
-31. As an IT Manager, I want to see on-time vs overdue counts grouped by `chg_category`, so that I know which change types miss SLA most often.
-32. As an IT Manager, I want to export the current filtered CR list as CSV.
+14. As an IT Manager, I want a filterable CR list with SLA rate, chg_category breakdown, and on-time vs overdue by category charts.
+15. As an IT Manager, I want to export filtered CRs as CSV.
 
 ### Operational Changes Page (`/operational-changes`)
 
-33. As an IT Manager, I want to see a SLA compliance rate for OCs only.
-34. As an IT Manager, I want to see a filterable list of OCs by `status_category`, `chg_category`, and `service_level`.
-35. As an IT Manager, I want to see OC cancellation and stop reason breakdowns (`cancel_reason`, `stop_reason`), so that I understand why operational changes fail.
-36. As an IT Manager, I want to see average `total_leadtime` for OCs, so that I can assess operational execution speed.
-37. As an IT Manager, I want to export the current filtered OC list as CSV.
+16. As an IT Manager, I want a filterable OC list with SLA rate, cancellation/stop reason charts, and avg resolution time.
+17. As an IT Manager, I want to export filtered OCs as CSV.
 
 ### AI Insights Page (`/ai-insights`)
 
-38. As an IT Manager, I want to trigger an AI analysis of the current tenant's data by clicking "Analyze Now", so that I get actionable insights without manually reviewing raw data.
-39. As any user, I want to optionally enter a custom query before triggering analysis, so that I can focus the AI on a specific area of concern.
-40. As any user, I want each AI insight to show a title, detail, severity (Info / Warning / Critical), and a recommended action, so that I know not just what is happening but what to do about it.
-41. As any user, I want insight cards to be color-coded by severity (green / yellow / red), so that I can prioritize at a glance.
-42. As any user, I want AI-generated custom charts rendered below the insight cards, so that I can see visualizations not available on the standard dashboard.
-43. As any user, I want each AI chart to have a title and description explaining why it is useful, so that I understand its purpose without guessing.
-44. As any user, I want to see the last 10 AI analyses for the selected tenant, so that I can review historical insights without re-running the analysis.
-45. As any user, I want an empty state if no analysis has been run yet, so that I am prompted to trigger one rather than seeing a blank screen.
+18. As an IT Manager, I want to trigger an AI analysis of the current tenant's JSM data and receive severity-coded insight cards and custom charts.
+19. As any user, I want to enter an optional custom query to focus the analysis.
+20. As any user, I want the last 10 analyses stored and viewable for the selected tenant.
 
 ### Super-Admin Area (`/admin`)
 
-46. As a super-admin, I want to add new tenants to the system, so that new customer organizations can be onboarded.
-47. As a super-admin, I want to edit tenant details, so that I can keep tenant records accurate.
-48. As a super-admin, I want to add new admin users, so that new ops team members can log in.
-49. As a super-admin, I want to assign a user to a tenant with a specific role (Executive / IT Manager / Employee), so that I control exactly what each person sees for each customer.
-50. As a super-admin, I want to remove a user's access to a tenant, so that I can revoke access without deleting the user.
-51. As a super-admin, I want to configure the permissions matrix for each role (what each role can see on each page), so that I can adjust visibility without developer intervention.
-52. As a super-admin, I want to see a list of all users and their tenant-role assignments, so that I can audit access at any time.
+21. As a super-admin, I want to manage tenants, users, tenant-role assignments, and the permissions matrix.
+
+### Batch Dashboard (`/batch`)
+
+22. As an IT Manager, I want a summary of batch job health: Total / Active / Failed / Success / Running / Pending counts and success rate.
+23. As an IT Manager, I want daily execution trend, failure trend, integration distribution, and success ratio charts.
+24. As an IT Manager, I want to filter by date range, tenant, integration, and status.
+
+### Job Management (`/batch/jobs`)
+
+25. As an IT Manager, I want to view all batch jobs with their collector ID, cron expression, active status, last run, next run, and current status.
+26. As an IT Manager, I want to enable/disable a job (toggle `active_yn`).
+27. As an IT Manager, I want to edit a job's cron schedule.
+28. As an IT Manager, I want to manually trigger a job execution.
+29. As an IT Manager, I want to stop a running job.
+30. As an IT Manager, I want to retry a failed job.
+31. As an Executive, I want to view the jobs list (read-only) without execution controls.
+
+### Execution History (`/batch/history`)
+
+32. As an IT Manager, I want to see all batch executions with crawling status, parsing status, start/end times, and duration.
+33. As an IT Manager, I want to filter by date, status, job name, and tenant.
+34. As an IT Manager, I want to retry a failed execution from the history row.
+35. As an IT Manager, I want to export execution history as CSV.
+
+### Raw Data Viewer (`/batch/raw-data`)
+
+36. As an IT Manager, I want to browse raw JSON API responses stored in `tb_raw_data`, filtered by batch date and collector.
+37. As an IT Manager, I want to view a pretty-printed JSON viewer for individual records.
+38. As an IT Manager, I want to download raw data as a JSON file.
+
+### Parsed Data Viewer (`/batch/parsed-data`)
+
+39. As an IT Manager, I want to browse parsed row-level records from `tb_raw_data_detail` with pagination and sorting.
+40. As an IT Manager, I want to export filtered parsed data as CSV.
+
+### Integration Configuration (`/batch/config`)
+
+41. As a super-admin, I want CRUD management of integration collectors (`tb_integration_collector`).
+42. As a super-admin, I want CRUD management of integration credentials (`tb_integration_config`) with secret values masked in GET responses.
+43. As a super-admin, I want CRUD management of parser mappings (`tb_integration_parser`).
+
+### Notification Module (`/batch/notifications`)
+
+44. As an IT Manager, I want to configure Email / Slack / Webhook notifications for job failures, timeouts, and critical errors.
+45. As an IT Manager, I want to view notification delivery history (sent / failed).
+
+### Audit Log (`/batch/audit`)
+
+46. As a super-admin, I want to see a full audit trail: all logins, config changes, job executions, and schedule updates with before/after values.
+47. As an IT Manager, I want to filter the audit log by date, user, module, and action.
+48. As an IT Manager, I want to export the audit log as CSV.
+
+### System Health (`/batch/health`)
+
+49. As an IT Manager, I want to see database connectivity and connection pool utilization.
+50. As an IT Manager, I want to see scheduler status and the next 5 scheduled job runs.
+51. As an IT Manager, I want the health page to auto-refresh every 30 seconds.
+
+---
 
 ## Implementation Decisions
 
-### Data Source
-- All dashboard data is read from the `v_jsm_sr_cr_oc` PostgreSQL view, which is a real-time JSM view.
-- The view is read-only. No write operations are performed against JSM.
-- Every query to the view must include a `WHERE tenant_id = ?` clause. No query may return cross-tenant data.
+### Stack
 
-### Multi-Tenancy
-- `tenant_id` (BIGINT) is the isolation key. It corresponds to the `company` / `company_key` fields in the view.
-- `client_company` / `client_name` refer to the issue reporter's organization — distinct from the tenant.
-- The tenant dropdown at the top of the authenticated layout shows only tenants the current user has access to.
+- **Runtime**: Bun 1.3.9 (production), Node 20 via nvm (WSL package management)
+- **Monorepo**: Turborepo 2.x — `apps/api`, `apps/web`, `packages/db`
+- **Backend**: Fastify v5, Drizzle ORM, PostgreSQL 17
+- **Frontend**: React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS v4, shadcn/ui, Recharts, React Hook Form + Zod
+- **AI**: Anthropic SDK, model `claude-sonnet-4-6`
+- **Testing**: Vitest, PGlite (`@electric-sql/pglite`) for in-memory PostgreSQL in tests
 
-### Role Model
-- Four roles: `super_admin`, `executive`, `it_manager`, `employee`.
-- `super_admin` is a system-level role with no tenant context — manages users, tenants, and role permissions.
-- `executive`, `it_manager`, and `employee` are tenant-scoped roles.
-- A single user can have different roles for different tenants (stored in `user_tenant_roles`).
-- Role permissions are configurable via the admin UI and stored in a `role_permissions` table.
+### Multi-Tenancy & Role Model (ADR-0006)
 
-### Role Visibility Defaults
-- **Executive**: Overview KPIs and SLA trend charts only.
-- **IT Manager**: Full access to all pages, filters, AI insights, and CSV export.
-- **Employee**: Issue lists filtered to `assignee_id = current_user` only; no cross-team data.
+Two independent dropdowns in the header:
+- **Tenant** — which organization to view data for (from `user_tenant_roles`)
+- **Permission Level** — what data-access level to apply (from `user_permissions`)
 
-### Database Schema (Application DB — not JSM)
-
+Every tenant-scoped API request carries:
 ```
-admin_users         id, email, password_hash, created_at
-sessions            id, admin_user_id, token, expires_at
-user_tenant_roles   id, user_id, tenant_id, role, created_at
-role_permissions    id, role, permission_key, enabled, updated_at
+X-Tenant-Id: <tenantId>
+X-Permission: executive | it_manager | employee
 ```
 
-### SLA Compliance
-- The `is_ontime` field from the view is trusted as the authoritative SLA signal. The app does not recalculate it from `due_date` vs `resolution_date` (see ADR-0001).
-- `service_level` is an SLA tier (e.g., Gold / Silver / Bronze) and is available as a filter on every issue-type page.
-- `status_category` is the primary grouping field for issue state. Exact values to be confirmed by running `SELECT DISTINCT status_category FROM v_jsm_sr_cr_oc`.
+#### System Roles (administrative)
 
-### Issue Type Pages
-- SR, CR, and OC have dedicated pages rather than a single unified filtered view (see ADR-0002).
-- CR and OC share the change-specific fields: `chg_category`, `chg_purpose`, `chg_charge_of`, `chg_req_by`.
-- SR uses `req_class` and `req_type` for classification.
+| Role | Scope | Capability |
+|------|-------|------------|
+| `super_admin` | Global | All tenants, all permissions, all admin + config pages |
+| `tenant_admin` | Per-tenant | Manages users and permissions within the tenant |
+| `operator` | Per-tenant | Operational access; can belong to multiple tenants |
+| `member` | Per-tenant | Basic read access |
 
-### Date Filtering
-- Default date range: last 30 days on all pages.
-- Options: last 7 days / 30 days / 90 days / custom range picker.
+#### Data-Access Permissions (global per user)
 
-### Auto-Refresh
-- TanStack Query handles background refetching every 5 minutes on all data pages.
-- Stale data is visually indicated; loading skeletons shown during refetch.
+| Permission | JSM Access | Batch Access |
+|------------|-----------|--------------|
+| `executive` | Overview KPIs only | Batch dashboard (read-only) |
+| `it_manager` | All pages + CSV + AI Insights | Full batch monitoring, job management, history, notifications |
+| `employee` | Own assigned issues only | — |
 
-### CSV Export
-- Available to IT Managers on SR, CR, and OC pages.
-- Exports the current filtered and date-scoped issue list.
-- PDF export and chart export are out of scope (see ADR-0005).
+A user can hold multiple permission levels.
 
-### AI Agent
-- Model: `claude-sonnet-4-6` via the Anthropic API.
-- Claude receives a pre-built JSON snapshot of the current tenant's aggregated metrics on every analysis request.
-- Claude can invoke a set of predefined, parameterized query tool functions. It cannot write or execute arbitrary SQL (see ADR-0004).
-- All AI analysis is strictly scoped to the currently selected tenant.
-- Each insight includes: `title`, `detail`, `severity` (Info | Warning | Critical), `recommended_action`.
-- Each chart includes: `title`, `description`, and a Recharts-compatible config object.
-- The last 10 analyses per tenant are stored in the `ai_insights` table.
+### Application Database Schema
 
-### Frontend Stack
-- Recharts for all charts (dashboard and AI-generated).
-- Light theme only.
-- Lucide React for all icons.
-- Color coding: green = healthy, yellow = warning, red = critical.
-- TanStack Router for routing; TanStack Query for all data fetching.
-- React Hook Form + Zod for all forms (login, admin forms, date pickers).
+```
+admin_users            id, email, password_hash, role ('super_admin'|null), jsm_assignee_id, created_at
+sessions               id, admin_user_id, token, expires_at
+tenants                id (BIGINT), name, created_at
+user_tenant_roles      id, user_id, tenant_id, system_role ('tenant_admin'|'operator'|'member'), created_at
+user_permissions       id, user_id, permission ('executive'|'it_manager'|'employee'), created_at
+role_permissions       id, role, permission_key, enabled, updated_at
+ai_insights            id, tenant_id, generated_at, input_snapshot, insights_json, charts_json, custom_query
+
+-- Batch module (new, Drizzle-managed)
+tb_audit_log           audit_id, user_id, action, module, old_value, new_value, created_at
+tb_notification_config config_id, tenant_id, channel ('email'|'slack'|'webhook'), config_json, enabled, created_at, updated_at
+tb_notification_history history_id, config_id, batch_history_id, status, message, sent_at
+tb_job_execution_audit  audit_id, collector_id, triggered_by, trigger_type ('manual'|'scheduled'|'retry'), started_at, ended_at, status, notes
+```
+
+### Batch Read-Only Tables (exist in prod, mirrored in PGlite for tests)
+
+```
+tb_integration_collector   collector_id, job_name, cron_schedule, integration_id, tenant_id, app_id, request_param, request_path, active_yn, internal_yn, create_date, update_date
+tb_integration_config      integration_config_id, app_id, tenant_id, integration_id, param_key, value, create_date, update_date
+tb_tenant                  tenant_id, company_key, customer_code, delete_yn, create_date, update_date
+tb_integration_parser      parser_id, tenant_id, integration_id, collector_id, parsing_code, create_date, update_date
+tb_batch_history           batch_history_id, batch_date, integration_id, tenant_id, collector_id, execution_cnt, crawling_status, crawling_start_time, crawling_end_time, parsing_status, parsing_start_time, parsing_end_time, create_date, update_date
+tb_raw_data                raw_data_id, batch_date, integration_id, tenant_id, app_id, collector_id, execution_cnt, parse_yn, data (JSONB), create_user_id, create_date, update_date
+tb_raw_data_detail         raw_data_detail_id, batch_date, integration_id, tenant_id, app_id, collector_id, execution_cnt, seq_no, parse_yn, data (JSONB), create_user_id, create_date, update_date
+```
+
+Batch status codes: `S` = Success, `F` = Failed, `R` = Running, `P` = Pending
+
+### role_permissions Keys
+
+| Permission Key | executive | it_manager | employee |
+|----------------|-----------|------------|----------|
+| `view_overview` | ✓ | ✓ | ✓ |
+| `view_service_requests` | — | ✓ | ✓ |
+| `view_change_requests` | — | ✓ | ✓ |
+| `view_operational_changes` | — | ✓ | ✓ |
+| `view_ai_insights` | — | ✓ | — |
+| `export_csv` | — | ✓ | — |
+| `batch_view_dashboard` | ✓ | ✓ | — |
+| `batch_manage_jobs` | — | ✓ | — |
+| `batch_view_raw_data` | — | ✓ | — |
+| `batch_manage_config` | — | — | — (super_admin only) |
+| `batch_view_health` | — | ✓ | — |
+
+### API Middleware Chain
+
+```
+requireAuth → requireTenantAccess → requirePermission(key)
+```
+
+Super-admin routes use `requireSuperAdmin` instead of steps 2+3.
+
+### API Surface
+
+#### JSM / Auth
+```
+POST /api/auth/login                          GET  /api/overview/stats
+POST /api/auth/logout                         GET  /api/service-requests
+GET  /api/auth/me                             GET  /api/service-requests/export
+GET  /api/tenants                             GET  /api/change-requests
+GET  /api/user/permissions                    GET  /api/change-requests/export
+                                              GET  /api/operational-changes
+POST /api/ai-insights/analyze                 GET  /api/operational-changes/export
+GET  /api/ai-insights
+```
+
+#### Admin
+```
+GET/POST       /api/admin/tenants
+PUT            /api/admin/tenants/:id
+GET/POST       /api/admin/users
+GET/PUT        /api/admin/users/:id/roles
+GET/PUT        /api/admin/role-permissions
+POST/DELETE    /api/admin/user-tenant-roles
+POST/DELETE    /api/admin/user-permissions
+```
+
+#### Batch
+```
+GET  /api/batch/dashboard/summary
+GET  /api/batch/dashboard/trends
+
+GET  /api/batch/jobs
+POST /api/batch/jobs/:id/run
+POST /api/batch/jobs/:id/stop
+POST /api/batch/jobs/:id/retry
+PUT  /api/batch/jobs/:id
+
+GET  /api/batch/history
+GET  /api/batch/history/:id
+POST /api/batch/history/:id/retry
+GET  /api/batch/history/export
+
+GET  /api/batch/raw-data
+GET  /api/batch/raw-data/:id
+GET  /api/batch/raw-data/export
+
+GET  /api/batch/parsed-data
+GET  /api/batch/parsed-data/:id
+GET  /api/batch/parsed-data/export
+
+GET/POST/PUT/DELETE /api/batch/collectors
+GET/POST/PUT/DELETE /api/batch/integration-config
+GET/POST/PUT/DELETE /api/batch/parsers
+
+GET/POST/PUT/DELETE /api/batch/notifications/config
+GET                 /api/batch/notifications/history
+
+GET  /api/batch/audit
+GET  /api/batch/audit/export
+
+GET  /api/system/health
+GET  /api/system/db-pool
+GET  /api/system/scheduler
+GET  /api/system/thread
+```
 
 ### Routes
 
 ```
 /login
-/                          → Overview Dashboard
+/                          → JSM Overview Dashboard
 /service-requests          → SR page
 /change-requests           → CR page
 /operational-changes       → OC page
 /ai-insights               → AI Agent Panel
+
 /admin                     → Super-admin overview
 /admin/tenants             → Manage tenants
 /admin/users               → Manage users
-/admin/users/:id/roles     → Assign tenant-role pairs to a user
+/admin/users/:id/roles     → Assign tenant-role pairs
 /admin/roles               → Configure role permissions matrix
+
+/batch                     → Batch execution summary dashboard
+/batch/jobs                → Job management
+/batch/history             → Execution history
+/batch/raw-data            → Raw data viewer
+/batch/parsed-data         → Parsed data viewer
+/batch/config              → Integration configuration (collectors, config, parsers)
+/batch/notifications       → Notification config + history
+/batch/audit               → Audit log
+/batch/health              → System health
 ```
 
-### API Endpoints
+### JSM Data Source Rules
 
-```
-POST /api/auth/login
-POST /api/auth/logout
-GET  /api/auth/me
+- All JSM dashboard data is read from `v_jsm_sr_cr_oc` PostgreSQL view (read-only).
+- Every query must include `WHERE tenant_id = ?` — no cross-tenant data.
+- `is_ontime` is trusted as-is from the view; never recalculated (ADR-0001).
+- SR, CR, OC have dedicated pages — not a unified view (ADR-0002).
 
-GET  /api/tenants                        → tenants accessible to current user
-GET  /api/metrics/overview               → 5 KPIs for selected tenant
-GET  /api/metrics/service-requests       → SR list + metrics
-GET  /api/metrics/change-requests        → CR list + metrics
-GET  /api/metrics/operational-changes    → OC list + metrics
-GET  /api/metrics/service-requests/export → CSV download
-GET  /api/metrics/change-requests/export  → CSV download
-GET  /api/metrics/operational-changes/export → CSV download
+### Batch Data Source Rules
 
-POST /api/ai/analyze                     → Trigger AI analysis
-GET  /api/ai/insights/history            → Last 10 analyses for tenant
+- `tb_batch_history`, `tb_raw_data`, `tb_raw_data_detail` are read-only from our layer.
+- `tb_integration_collector`, `tb_integration_config`, `tb_integration_parser` support CRUD (super_admin only for writes).
+- All batch queries include `WHERE tenant_id = ?`.
+- Credential values (`access_key`, `secret_key`, `token`, `password`, `api_key`, `authorization`) are masked as `"***"` in GET responses.
 
-GET  /api/admin/tenants
-POST /api/admin/tenants
-PUT  /api/admin/tenants/:id
-GET  /api/admin/users
-POST /api/admin/users
-GET  /api/admin/users/:id/roles
-PUT  /api/admin/users/:id/roles
-GET  /api/admin/role-permissions
-PUT  /api/admin/role-permissions
-```
+### AI Agent
+
+- Model: `claude-sonnet-4-6` via Anthropic SDK.
+- Receives a pre-built JSON snapshot of aggregated tenant metrics — no raw SQL results.
+- Invokes predefined parameterized tool functions only. No arbitrary SQL (ADR-0004).
+- Scoped strictly to the selected tenant.
+- Last 10 analyses per tenant stored in `ai_insights`.
+
+---
 
 ## Testing Decisions
 
-**What makes a good test**: Tests should verify external behavior at the highest seam possible — not implementation details. A test should remain valid after an internal refactor.
+**Rule**: Tests verify external behavior through public interfaces, not implementation details. A test survives any internal refactor.
 
-**Primary seam — Fastify route level (backend)**: Test each API endpoint by calling it through Fastify's test utilities with real database interactions (not mocked). This catches tenant scoping bugs, role enforcement failures, and data shape mismatches simultaneously.
+**Primary seam — Fastify route level**: Every API endpoint tested via `app.inject()` + PGlite in-memory database. Same `buildApp(db)` factory in production and tests. No mocking of the application database.
 
-Key behaviors to test at this seam:
-- Every metrics endpoint rejects requests without a valid session.
-- Every metrics endpoint rejects requests where the user does not have access to the requested `tenant_id`.
-- Every metrics endpoint filters data by `tenant_id` — never leaks cross-tenant rows.
-- Role enforcement middleware returns 403 for unauthorized roles (e.g., Employee hitting a cross-team endpoint).
-- CSV export endpoints return `Content-Type: text/csv` with correct headers.
-- The AI analysis endpoint calls predefined tool functions and never passes raw SQL to Claude.
+**JSM view / batch tables in tests**: Plain PGlite tables with the same column shapes as the real views/tables, created in `createTestDb()` and seeded with fixture rows.
 
-**Secondary seam — React component / TanStack Query level (frontend)**: Test pages with Vitest and React Testing Library against mocked API responses. Focus on empty states, error states, loading skeletons, and role-conditioned UI rendering.
+**Batch-specific invariants**:
+- Every `/api/batch/*` route rejects without a valid session (401).
+- Every batch data route scopes results to `tenant_id` — no cross-tenant rows.
+- Job run/stop/retry creates an audit row in `tb_job_execution_audit`.
+- Config GET responses never return plaintext credential values.
+- `batch_manage_config` routes return 403 for non-super-admin.
 
-**No mocking of the application database**: Integration tests hit a real PostgreSQL test database seeded with fixtures (see ADR rationale in ADR-0003).
+**Secondary seam — React (Vitest + RTL)**: Loading skeletons, empty states, error states, role-conditioned navigation.
+
+**Anthropic SDK**: Mocked at the SDK boundary in AI Insights tests only.
+
+---
+
+## Implementation Issues
+
+| # | Issue | Module | Status | Blocked by |
+|---|-------|--------|--------|------------|
+| 1 | Monorepo Scaffolding | Infra | ✅ Done | — |
+| 2 | Authentication | Auth | ✅ Done | #1 |
+| 3 | Tenant Selector + Role Enforcement | Auth | ✅ Done | #2 |
+| 4 | Super-Admin — User & Tenant Management | Admin | ✅ Done | #3 |
+| 5 | Role Permissions Matrix | Admin | ✅ Done | #4 |
+| 6 | Overview Dashboard | JSM | ✅ Done | #3 |
+| 7 | Service Requests Page | JSM | ✅ Done | #6 |
+| 8 | Change Requests Page | JSM | ✅ Done | #6 |
+| 9 | Operational Changes Page | JSM | ✅ Done | #6 |
+| 10 | AI Insights Page | JSM | ✅ Done | #6 |
+| 11 | Master PRD | Docs | ✅ Done | — |
+| 15 | Batch DB Schema & Data Access Layer | Batch | ⬜ | #1 |
+| 16 | Batch Dashboard (FR-1) | Batch | ⬜ | #15, #3 |
+| 17 | Job Management Module (FR-2) | Batch | ⬜ | #15, #3 |
+| 18 | Execution History Module (FR-3) | Batch | ⬜ | #15, #3 |
+| 19 | Raw Data Viewer (FR-4) | Batch | ⬜ | #15, #3 |
+| 20 | Parsed Data Viewer (FR-5) | Batch | ⬜ | #15, #3 |
+| 21 | Integration Configuration Module (FR-6) | Batch | ⬜ | #15, #4 |
+| 22 | Notification Module (FR-7) | Batch | ⬜ | #15, #3 |
+| 23 | Audit Log Module (FR-8) | Batch | ⬜ | #15, #3 |
+| 24 | System Health Monitor (FR-9) | Batch | ⬜ | #15 |
+
+---
 
 ## Out of Scope
 
-- Write-back to JSM (reassigning, resolving, or updating issues from the dashboard)
-- PDF export or chart screenshot export
-- Real-time alerts or push notifications for SLA breaches
-- SSO / LDAP / external identity provider integration
+- Write-back to JSM (read-only throughout — ADR-0005)
+- PDF or chart screenshot export
+- SSO / LDAP / external identity provider
 - Cross-tenant AI analysis or benchmarking
-- Mobile app (responsive to tablet and desktop only)
-- Email reports or scheduled digests
-- Custom dashboard builder (users cannot rearrange or configure widgets)
-- Historical snapshots of JSM data (dashboard reflects current real-time view only)
+- Mobile app (tablet and desktop only)
+- Custom dashboard builder
+- Historical snapshots of JSM data (real-time view only)
+- JVM / Spring Boot internal metrics (observable from Fastify layer: DB pool + scheduler only)
+- Direct database editing from the UI (configuration changes go through API)
+- Grafana integration (future enhancement)
+- AI anomaly detection on batch data (future enhancement)
+
+---
 
 ## Further Notes
 
-- The `status_category` distinct values must be confirmed by querying the production view before implementing status-based color coding and KPI grouping. Placeholder: assumes Jira standard categories (To Do / In Progress / Done) until confirmed.
-- ADRs for the five key architectural decisions are in `docs/adr/` (ADR-0001 through ADR-0005).
-- The `company` field in the view maps to the tenant. `client_company` maps to the issue reporter's organization. These are distinct and must not be conflated in any query or label.
+- ADRs for key architectural decisions: `docs/adr/` (ADR-0001 through ADR-0006).
+- Full SRS for batch module: `docs/SRS-cportal-batch-dashboard.md`.
+- `status_category` distinct values must be confirmed against the production JSM view before implementing color-coded KPI grouping.
+- `company` in the JSM view = tenant; `client_company` = issue reporter's org. Never conflate in queries or labels.
+- Batch credential fields to mask: `access_key`, `secret_key`, `token`, `password`, `api_key`, `authorization`, `username`.

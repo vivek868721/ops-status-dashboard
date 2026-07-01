@@ -6,7 +6,6 @@ import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api";
 import { authQueryOptions } from "../lib/queries";
-import { useTenant } from "../contexts/tenant";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -17,7 +16,6 @@ type FormValues = z.infer<typeof schema>;
 export function LoginPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { tenant } = useTenant();
   const [serverError, setServerError] = useState<string | null>(null);
 
   const {
@@ -33,7 +31,7 @@ export function LoginPage() {
       // Remove stale/error auth cache so the route guard's ensureQueryData
       // does a fresh fetch with the new session cookie, not the old 401 state.
       queryClient.removeQueries({ queryKey: authQueryOptions.queryKey });
-      navigate({ to: tenant ? "/" : "/select-tenant" });
+      navigate({ to: "/" });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setServerError("Invalid email or password.");

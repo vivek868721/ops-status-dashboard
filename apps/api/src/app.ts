@@ -9,6 +9,7 @@ import { changeRequestRoutes } from "./routes/changeRequests.js";
 import { operationalChangeRoutes } from "./routes/operationalChanges.js";
 import { adminRoutes } from "./routes/admin.js";
 import { aiInsightRoutes } from "./routes/aiInsights.js";
+import { batchDashboardRoutes } from "./routes/batchDashboard.js";
 
 export type AppDb = PgDatabase<any, any, any>;
 
@@ -36,6 +37,7 @@ export function buildApp(db: AppDb, opts: { logger?: boolean } = {}) {
   app.register(operationalChangeRoutes);
   app.register(adminRoutes);
   app.register(aiInsightRoutes);
+  app.register(batchDashboardRoutes);
 
   return app;
 }

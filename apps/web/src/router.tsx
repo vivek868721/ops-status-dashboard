@@ -3,12 +3,12 @@ import type { QueryClient } from "@tanstack/react-query";
 import { authQueryOptions } from "./lib/queries";
 import { AppShell } from "./components/AppShell";
 import { LoginPage } from "./pages/LoginPage";
-import { TenantSelectorPage } from "./pages/TenantSelectorPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { ServiceRequestsPage } from "./pages/ServiceRequestsPage";
 import { ChangeRequestsPage } from "./pages/ChangeRequestsPage";
 import { OperationalChangesPage } from "./pages/OperationalChangesPage";
 import { AiInsightsPage } from "./pages/AiInsightsPage";
+import { BatchDashboardPage } from "./pages/BatchDashboardPage";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -29,27 +29,12 @@ const loginRoute = createRoute({
   path: "/login",
   beforeLoad: async ({ context }) => {
     const user = await getUser(context.queryClient);
-    if (user) {
-      const tenantId = localStorage.getItem("tenantId");
-      throw redirect({ to: tenantId ? "/" : "/select-tenant" });
-    }
+    if (user) throw redirect({ to: "/" });
   },
   component: LoginPage,
 });
 
-// ── Auth-required (no tenant needed) ────────────────────────────────────────
-
-const selectTenantRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/select-tenant",
-  beforeLoad: async ({ context }) => {
-    const user = await getUser(context.queryClient);
-    if (!user) throw redirect({ to: "/login" });
-  },
-  component: TenantSelectorPage,
-});
-
-// ── Auth + tenant required (app shell layout) ────────────────────────────────
+// ── Auth-required (app shell layout) ────────────────────────────────────────
 
 const appRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -57,8 +42,6 @@ const appRoute = createRoute({
   beforeLoad: async ({ context }) => {
     const user = await getUser(context.queryClient);
     if (!user) throw redirect({ to: "/login" });
-    const tenantId = localStorage.getItem("tenantId");
-    if (!tenantId) throw redirect({ to: "/select-tenant" });
   },
   component: AppShell,
 });
@@ -90,24 +73,31 @@ const operationalChangesRoute = createRoute({
 const aiInsightsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/ai-insights",
-  beforeLoad: async ({ context }) => {
-    const stored = localStorage.getItem("tenant");
-    if (stored) {
-      const tenant = JSON.parse(stored) as { role: string };
-      if (tenant.role !== "it_manager") throw redirect({ to: "/" });
-    }
+  beforeLoad: async () => {
+    const permission = localStorage.getItem("permission");
+    if (permission && permission !== "it_manager") throw redirect({ to: "/" });
   },
   component: AiInsightsPage,
 });
 
+const batchDashboardRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/batch",
+  beforeLoad: async () => {
+    const permission = localStorage.getItem("permission");
+    if (permission === "employee") throw redirect({ to: "/" });
+  },
+  component: BatchDashboardPage,
+});
+
 export const routeTree = rootRoute.addChildren([
   loginRoute,
-  selectTenantRoute,
   appRoute.addChildren([
     indexRoute,
     serviceRequestsRoute,
     changeRequestsRoute,
     operationalChangesRoute,
     aiInsightsRoute,
+    batchDashboardRoute,
   ]),
 ]);

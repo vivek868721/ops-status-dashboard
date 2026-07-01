@@ -25,12 +25,19 @@ export const tenantsQueryOptions = queryOptions({
   staleTime: 5 * 60 * 1000,
 });
 
-export const overviewQueryOptions = queryOptions({
-  queryKey: ["overview", "stats"],
-  queryFn: () => api.overview.stats(),
-  refetchInterval: 5 * 60 * 1000,
-  staleTime: 60 * 1000,
-});
+function hasTenantContext() {
+  return !!localStorage.getItem("tenantId") && !!localStorage.getItem("permission");
+}
+
+export function overviewQueryOptions() {
+  return queryOptions({
+    queryKey: ["overview", "stats"],
+    queryFn: () => api.overview.stats(),
+    refetchInterval: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
+    enabled: hasTenantContext(),
+  });
+}
 
 export function srQueryOptions(
   range: DateRange,
@@ -59,8 +66,36 @@ export function ocQueryOptions(range: DateRange, filters: { status?: string; chg
   });
 }
 
-export const aiInsightsQueryOptions = queryOptions({
-  queryKey: ["ai-insights"],
-  queryFn: () => api.aiInsights.list(),
-  staleTime: 30 * 1000,
+export const userPermissionsQueryOptions = queryOptions({
+  queryKey: ["user", "permissions"],
+  queryFn: () => api.userPermissions.list(),
+  staleTime: 5 * 60 * 1000,
 });
+
+export function aiInsightsQueryOptions() {
+  return queryOptions({
+    queryKey: ["ai-insights"],
+    queryFn: () => api.aiInsights.list(),
+    staleTime: 30 * 1000,
+    enabled: hasTenantContext(),
+  });
+}
+
+export function batchSummaryQueryOptions(params?: { startDate?: string; endDate?: string }) {
+  return queryOptions({
+    queryKey: ["batch", "summary", params],
+    queryFn: () => api.batch.summary(params),
+    refetchInterval: 30 * 1000,
+    staleTime: 15 * 1000,
+    enabled: hasTenantContext(),
+  });
+}
+
+export function batchTrendsQueryOptions(params?: { startDate?: string; endDate?: string }) {
+  return queryOptions({
+    queryKey: ["batch", "trends", params],
+    queryFn: () => api.batch.trends(params),
+    staleTime: 60 * 1000,
+    enabled: hasTenantContext(),
+  });
+}

@@ -1,39 +1,54 @@
 import { createContext, useContext, useState } from "react";
-import type { TenantRole } from "../lib/api";
+import type { TenantItem, Permission } from "../lib/api";
 
 interface TenantContextValue {
-  tenant: TenantRole | null;
-  setTenant: (t: TenantRole) => void;
-  clearTenant: () => void;
+  selectedTenant: TenantItem | null;
+  selectedPermission: Permission | null;
+  setSelection: (tenant: TenantItem, permission: Permission) => void;
+  clearSelection: () => void;
 }
 
 const TenantContext = createContext<TenantContextValue | null>(null);
 
-function loadFromStorage(): TenantRole | null {
+function loadTenant(): TenantItem | null {
   try {
     const raw = localStorage.getItem("tenant");
-    return raw ? (JSON.parse(raw) as TenantRole) : null;
+    return raw ? (JSON.parse(raw) as TenantItem) : null;
   } catch {
     return null;
   }
 }
 
-export function TenantProvider({ children }: { children: React.ReactNode }) {
-  const [tenant, setTenantState] = useState<TenantRole | null>(loadFromStorage);
+function loadPermission(): Permission | null {
+  const raw = localStorage.getItem("permission");
+  return raw ? (raw as Permission) : null;
+}
 
-  function setTenant(t: TenantRole) {
-    localStorage.setItem("tenant", JSON.stringify(t));
-    localStorage.setItem("tenantId", String(t.tenantId));
-    setTenantState(t);
+export function TenantProvider({ children }: { children: React.ReactNode }) {
+  const [selectedTenant, setTenantState] = useState<TenantItem | null>(loadTenant);
+  const [selectedPermission, setPermissionState] = useState<Permission | null>(loadPermission);
+
+  function setSelection(tenant: TenantItem, permission: Permission) {
+    localStorage.setItem("tenant", JSON.stringify(tenant));
+    localStorage.setItem("tenantId", String(tenant.tenantId));
+    localStorage.setItem("permission", permission);
+    setTenantState(tenant);
+    setPermissionState(permission);
   }
 
-  function clearTenant() {
+  function clearSelection() {
     localStorage.removeItem("tenant");
     localStorage.removeItem("tenantId");
+    localStorage.removeItem("permission");
     setTenantState(null);
+    setPermissionState(null);
   }
 
-  return <TenantContext.Provider value={{ tenant, setTenant, clearTenant }}>{children}</TenantContext.Provider>;
+  return (
+    <TenantContext.Provider value={{ selectedTenant, selectedPermission, setSelection, clearSelection }}>
+      {children}
+    </TenantContext.Provider>
+  );
 }
 
 export function useTenant() {

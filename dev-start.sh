@@ -9,6 +9,10 @@ PG_DATA="$HOME/.pg-data"
 echo "==> Starting PostgreSQL..."
 $PG_BIN/pg_ctl -D "$PG_DATA" -l "$PG_DATA/postgres.log" start || true
 
+echo "==> Running migrations..."
+cd "$REPO"
+DATABASE_URL=postgres://vivek@127.0.0.1:5432/ops_dashboard bun run scripts/migrate.ts
+
 echo "==> Starting API (port 3001)..."
 cd "$REPO/apps/api"
 DATABASE_URL=postgres://vivek@127.0.0.1:5432/ops_dashboard \

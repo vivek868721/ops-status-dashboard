@@ -1,8 +1,16 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { adminUsers, sessions, tenants, userTenantRoles, userPermissions, rolePermissions, aiInsights, jsmView } from "@ops/db";
+import {
+  adminUsers, sessions, tenants, userTenantRoles, userPermissions, rolePermissions, aiInsights, jsmView,
+  tbAuditLog, tbNotificationConfig, tbNotificationHistory, tbJobExecutionAudit,
+  tbBatchHistory, tbIntegrationCollector, tbIntegrationConfig, tbIntegrationParser, tbRawData, tbRawDataDetail,
+} from "@ops/db";
 
-const schema = { adminUsers, sessions, tenants, userTenantRoles, userPermissions, rolePermissions, aiInsights };
+const schema = {
+  adminUsers, sessions, tenants, userTenantRoles, userPermissions, rolePermissions, aiInsights,
+  tbAuditLog, tbNotificationConfig, tbNotificationHistory, tbJobExecutionAudit,
+  tbBatchHistory, tbIntegrationCollector, tbIntegrationConfig, tbIntegrationParser, tbRawData, tbRawDataDetail,
+};
 
 export async function createTestDb() {
   const client = new PGlite();
@@ -94,6 +102,107 @@ export async function createTestDb() {
       client_company TEXT,
       client_name TEXT
     );
+
+    -- Batch module: writable tables
+    CREATE TABLE IF NOT EXISTS tb_audit_log (
+      audit_id SERIAL PRIMARY KEY,
+      action TEXT NOT NULL,
+      module TEXT NOT NULL,
+      old_value TEXT,
+      new_value TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS tb_notification_config (
+      config_id SERIAL PRIMARY KEY,
+      tenant_id BIGINT NOT NULL,
+      channel TEXT NOT NULL,
+      config_json TEXT NOT NULL,
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS tb_notification_history (
+      history_id SERIAL PRIMARY KEY,
+      config_id INTEGER NOT NULL REFERENCES tb_notification_config(config_id),
+      status TEXT NOT NULL,
+      message TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS tb_job_execution_audit (
+      audit_id SERIAL PRIMARY KEY,
+      collector_id INTEGER NOT NULL,
+      trigger_type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      ended_at TIMESTAMP
+    );
+
+    -- Batch module: read-only tables (seeded by tests, owned by CPORTAL batch system in prod)
+    CREATE TABLE IF NOT EXISTS tb_batch_history (
+      id SERIAL PRIMARY KEY,
+      batch_date DATE,
+      integration_id TEXT,
+      tenant_id BIGINT,
+      collector_id INTEGER,
+      crawling_status TEXT,
+      parse_status TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS tb_integration_collector (
+      collector_id SERIAL PRIMARY KEY,
+      job_name TEXT NOT NULL,
+      cron_schedule TEXT,
+      integration_id TEXT,
+      tenant_id BIGINT,
+      active_yn TEXT DEFAULT 'Y',
+      last_run_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS tb_integration_config (
+      config_id SERIAL PRIMARY KEY,
+      integration_id TEXT NOT NULL,
+      tenant_id BIGINT,
+      base_url TEXT,
+      auth_type TEXT,
+      access_key TEXT,
+      secret_key TEXT,
+      token TEXT,
+      api_key TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS tb_integration_parser (
+      parser_id SERIAL PRIMARY KEY,
+      integration_id TEXT NOT NULL,
+      tenant_id BIGINT,
+      parser_class TEXT,
+      config_json TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS tb_raw_data (
+      id SERIAL PRIMARY KEY,
+      batch_date DATE,
+      integration_id TEXT,
+      tenant_id BIGINT,
+      collector_id INTEGER,
+      parse_yn TEXT DEFAULT 'N',
+      data TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS tb_raw_data_detail (
+      id SERIAL PRIMARY KEY,
+      raw_data_id INTEGER,
+      field_name TEXT,
+      field_value TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
   `);
 
   return { db, client };
@@ -109,6 +218,10 @@ const PERMISSION_KEYS = [
   "view_operational_changes",
   "view_ai_insights",
   "export_csv",
+  "batch_view_dashboard",
+  "batch_manage_jobs",
+  "batch_view_raw_data",
+  "batch_view_health",
 ] as const;
 
 const DEFAULT_PERMISSIONS: Record<Permission, Record<(typeof PERMISSION_KEYS)[number], boolean>> = {
@@ -119,6 +232,10 @@ const DEFAULT_PERMISSIONS: Record<Permission, Record<(typeof PERMISSION_KEYS)[nu
     view_operational_changes: false,
     view_ai_insights: false,
     export_csv: false,
+    batch_view_dashboard: true,
+    batch_manage_jobs: false,
+    batch_view_raw_data: false,
+    batch_view_health: false,
   },
   it_manager: {
     view_overview: true,
@@ -127,6 +244,10 @@ const DEFAULT_PERMISSIONS: Record<Permission, Record<(typeof PERMISSION_KEYS)[nu
     view_operational_changes: true,
     view_ai_insights: true,
     export_csv: true,
+    batch_view_dashboard: true,
+    batch_manage_jobs: true,
+    batch_view_raw_data: true,
+    batch_view_health: true,
   },
   employee: {
     view_overview: false,
@@ -135,6 +256,10 @@ const DEFAULT_PERMISSIONS: Record<Permission, Record<(typeof PERMISSION_KEYS)[nu
     view_operational_changes: true,
     view_ai_insights: false,
     export_csv: false,
+    batch_view_dashboard: false,
+    batch_manage_jobs: false,
+    batch_view_raw_data: false,
+    batch_view_health: false,
   },
 };
 

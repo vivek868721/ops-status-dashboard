@@ -94,3 +94,106 @@ export const aiInsights = pgTable("ai_insights", {
   chartsJson: text("charts_json").notNull(),
   customQuery: text("custom_query"),
 });
+
+// ── Batch module — read-only tables owned by CPORTAL batch system ─────────────
+
+export const tbBatchHistory = pgTable("tb_batch_history", {
+  id: serial("id").primaryKey(),
+  batchDate: text("batch_date"),
+  integrationId: text("integration_id"),
+  tenantId: bigint("tenant_id", { mode: "number" }),
+  collectorId: integer("collector_id"),
+  crawlingStatus: text("crawling_status"),
+  parseStatus: text("parse_status"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const tbIntegrationCollector = pgTable("tb_integration_collector", {
+  collectorId: serial("collector_id").primaryKey(),
+  jobName: text("job_name").notNull(),
+  cronSchedule: text("cron_schedule"),
+  integrationId: text("integration_id"),
+  tenantId: bigint("tenant_id", { mode: "number" }),
+  activeYn: text("active_yn").default("Y"),
+  lastRunAt: timestamp("last_run_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const tbIntegrationConfig = pgTable("tb_integration_config", {
+  configId: serial("config_id").primaryKey(),
+  integrationId: text("integration_id").notNull(),
+  tenantId: bigint("tenant_id", { mode: "number" }),
+  baseUrl: text("base_url"),
+  authType: text("auth_type"),
+  accessKey: text("access_key"),
+  secretKey: text("secret_key"),
+  token: text("token"),
+  apiKey: text("api_key"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const tbIntegrationParser = pgTable("tb_integration_parser", {
+  parserId: serial("parser_id").primaryKey(),
+  integrationId: text("integration_id").notNull(),
+  tenantId: bigint("tenant_id", { mode: "number" }),
+  parserClass: text("parser_class"),
+  configJson: text("config_json"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const tbRawData = pgTable("tb_raw_data", {
+  id: serial("id").primaryKey(),
+  batchDate: text("batch_date"),
+  integrationId: text("integration_id"),
+  tenantId: bigint("tenant_id", { mode: "number" }),
+  collectorId: integer("collector_id"),
+  parseYn: text("parse_yn").default("N"),
+  data: text("data"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const tbRawDataDetail = pgTable("tb_raw_data_detail", {
+  id: serial("id").primaryKey(),
+  rawDataId: integer("raw_data_id"),
+  fieldName: text("field_name"),
+  fieldValue: text("field_value"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ── Batch module — writable tables managed by this app ────────────────────────
+
+export const tbAuditLog = pgTable("tb_audit_log", {
+  auditId: serial("audit_id").primaryKey(),
+  action: text("action").notNull(),
+  module: text("module").notNull(),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const tbNotificationConfig = pgTable("tb_notification_config", {
+  configId: serial("config_id").primaryKey(),
+  tenantId: bigint("tenant_id", { mode: "number" }).notNull(),
+  channel: text("channel").notNull(),
+  configJson: text("config_json").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const tbNotificationHistory = pgTable("tb_notification_history", {
+  historyId: serial("history_id").primaryKey(),
+  configId: integer("config_id").notNull().references(() => tbNotificationConfig.configId),
+  status: text("status").notNull(),
+  message: text("message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const tbJobExecutionAudit = pgTable("tb_job_execution_audit", {
+  auditId: serial("audit_id").primaryKey(),
+  collectorId: integer("collector_id").notNull(),
+  triggerType: text("trigger_type").notNull(),
+  status: text("status").notNull(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  endedAt: timestamp("ended_at"),
+});

@@ -25,7 +25,7 @@ const DATE_RANGES: { label: string; value: DateRange }[] = [
 ];
 
 export function OperationalChangesPage() {
-  const { tenant } = useTenant();
+  const { selectedTenant, selectedPermission } = useTenant();
   const [range, setRange] = useState<DateRange>("30d");
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -46,9 +46,9 @@ export function OperationalChangesPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Operational Changes</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{tenant?.name}</p>
+          <p className="text-sm text-gray-500 mt-0.5">{selectedTenant?.name}</p>
         </div>
-        {tenant?.role === "it_manager" && (
+        {selectedPermission === "it_manager" && (
           <button
             onClick={handleExport}
             disabled={exporting}

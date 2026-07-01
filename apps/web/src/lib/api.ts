@@ -1,10 +1,14 @@
 export type User = { id: number; email: string };
 
-export type TenantRole = {
+// What GET /api/tenants returns per entry
+export type TenantItem = {
   tenantId: number;
   name: string | null;
-  role: "executive" | "it_manager" | "employee";
+  systemRole: string;
 };
+
+// Data-access permission level (shown as second dropdown)
+export type Permission = "executive" | "it_manager" | "employee";
 
 export type OverviewStats = {
   slaComplianceRate: number;
@@ -78,6 +82,21 @@ export type Analysis = {
 
 export type DateRange = "7d" | "30d" | "90d";
 
+export type BatchSummary = {
+  total: number;
+  success: number;
+  failed: number;
+  running: number;
+  pending: number;
+  active: number;
+  successRate: number;
+};
+
+export type BatchTrends = {
+  dailyTrend: { date: string; total: number; success: number; failed: number }[];
+  integrationDistribution: { integrationId: string; count: number }[];
+};
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -93,6 +112,9 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   const tenantId = localStorage.getItem("tenantId");
   if (tenantId) headers["X-Tenant-Id"] = tenantId;
+
+  const permission = localStorage.getItem("permission");
+  if (permission) headers["X-Permission"] = permission;
 
   Object.assign(headers, init.headers);
 
@@ -123,6 +145,8 @@ async function downloadCsv(path: string, filename: string) {
   const headers: Record<string, string> = {};
   const tenantId = localStorage.getItem("tenantId");
   if (tenantId) headers["X-Tenant-Id"] = tenantId;
+  const permission = localStorage.getItem("permission");
+  if (permission) headers["X-Permission"] = permission;
 
   const res = await fetch(`/api${path}`, { credentials: "include", headers });
   if (!res.ok) throw new ApiError(res.status, res.statusText);
@@ -148,7 +172,11 @@ export const api = {
   },
 
   tenants: {
-    list: () => req<TenantRole[]>("/tenants"),
+    list: () => req<TenantItem[]>("/tenants"),
+  },
+
+  userPermissions: {
+    list: () => req<Permission[]>("/user/permissions"),
   },
 
   overview: {
@@ -180,5 +208,12 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ customQuery }),
       }),
+  },
+
+  batch: {
+    summary: (params?: { startDate?: string; endDate?: string }) =>
+      req<BatchSummary>(`/batch/dashboard/summary${buildQuery(params ?? {})}`),
+    trends: (params?: { startDate?: string; endDate?: string }) =>
+      req<BatchTrends>(`/batch/dashboard/trends${buildQuery(params ?? {})}`),
   },
 };
