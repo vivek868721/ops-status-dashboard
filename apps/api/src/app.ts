@@ -10,6 +10,9 @@ import { operationalChangeRoutes } from "./routes/operationalChanges.js";
 import { adminRoutes } from "./routes/admin.js";
 import { aiInsightRoutes } from "./routes/aiInsights.js";
 import { batchDashboardRoutes } from "./routes/batchDashboard.js";
+import { batchJobsRoutes } from "./routes/batchJobs.js";
+import { batchHistoryRoutes } from "./routes/batchHistory.js";
+import { batchRawDataRoutes } from "./routes/batchRawData.js";
 
 export type AppDb = PgDatabase<any, any, any>;
 
@@ -38,6 +41,9 @@ export function buildApp(db: AppDb, opts: { logger?: boolean } = {}) {
   app.register(adminRoutes);
   app.register(aiInsightRoutes);
   app.register(batchDashboardRoutes);
+  app.register(batchJobsRoutes);
+  app.register(batchHistoryRoutes);
+  app.register(batchRawDataRoutes);
 
   return app;
 }

@@ -81,6 +81,42 @@ export function aiInsightsQueryOptions() {
   });
 }
 
+export function rawDataQueryOptions(params?: { batchDate?: string; collectorId?: string; integrationId?: string }) {
+  return queryOptions({
+    queryKey: ["batch", "raw-data", params],
+    queryFn: () => api.rawData.list(params),
+    staleTime: 30 * 1000,
+    enabled: hasTenantContext(),
+  });
+}
+
+export function rawDataDetailQueryOptions(id: number | null) {
+  return queryOptions({
+    queryKey: ["batch", "raw-data", id],
+    queryFn: () => api.rawData.get(id!),
+    staleTime: 60 * 1000,
+    enabled: id !== null && hasTenantContext(),
+  });
+}
+
+export function batchHistoryQueryOptions(params?: { batchDate?: string; crawlingStatus?: string; integrationId?: string }) {
+  return queryOptions({
+    queryKey: ["batch", "history", params],
+    queryFn: () => api.batchHistory.list(params),
+    staleTime: 30 * 1000,
+    enabled: hasTenantContext(),
+  });
+}
+
+export function batchJobsQueryOptions() {
+  return queryOptions({
+    queryKey: ["batch", "jobs"],
+    queryFn: () => api.batch.jobs.list(),
+    staleTime: 30 * 1000,
+    enabled: hasTenantContext(),
+  });
+}
+
 export function batchSummaryQueryOptions(params?: { startDate?: string; endDate?: string }) {
   return queryOptions({
     queryKey: ["batch", "summary", params],

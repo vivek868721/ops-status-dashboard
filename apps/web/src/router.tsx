@@ -9,6 +9,9 @@ import { ChangeRequestsPage } from "./pages/ChangeRequestsPage";
 import { OperationalChangesPage } from "./pages/OperationalChangesPage";
 import { AiInsightsPage } from "./pages/AiInsightsPage";
 import { BatchDashboardPage } from "./pages/BatchDashboardPage";
+import { JobsPage } from "./pages/JobsPage";
+import { HistoryPage } from "./pages/HistoryPage";
+import { RawDataPage } from "./pages/RawDataPage";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -90,6 +93,36 @@ const batchDashboardRoute = createRoute({
   component: BatchDashboardPage,
 });
 
+const batchJobsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/batch/jobs",
+  beforeLoad: async () => {
+    const permission = localStorage.getItem("permission");
+    if (permission === "employee") throw redirect({ to: "/" });
+  },
+  component: JobsPage,
+});
+
+const rawDataRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/batch/raw-data",
+  beforeLoad: async () => {
+    const permission = localStorage.getItem("permission");
+    if (permission !== "it_manager") throw redirect({ to: "/" });
+  },
+  component: RawDataPage,
+});
+
+const batchHistoryRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/batch/history",
+  beforeLoad: async () => {
+    const permission = localStorage.getItem("permission");
+    if (permission === "employee") throw redirect({ to: "/" });
+  },
+  component: HistoryPage,
+});
+
 export const routeTree = rootRoute.addChildren([
   loginRoute,
   appRoute.addChildren([
@@ -99,5 +132,8 @@ export const routeTree = rootRoute.addChildren([
     operationalChangesRoute,
     aiInsightsRoute,
     batchDashboardRoute,
+    batchJobsRoute,
+    batchHistoryRoute,
+    rawDataRoute,
   ]),
 ]);

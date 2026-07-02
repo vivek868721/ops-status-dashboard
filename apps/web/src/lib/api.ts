@@ -82,6 +82,39 @@ export type Analysis = {
 
 export type DateRange = "7d" | "30d" | "90d";
 
+export type RawDataItem = {
+  id: number;
+  batchDate: string | null;
+  integrationId: string | null;
+  tenantId: number | null;
+  collectorId: number | null;
+  parseYn: string | null;
+  createdAt: string | null;
+};
+
+export type RawDataDetail = RawDataItem & { data: string | null };
+
+export type HistoryItem = {
+  id: number;
+  batchDate: string | null;
+  integrationId: string | null;
+  tenantId: number | null;
+  collectorId: number | null;
+  crawlingStatus: string | null;
+  parseStatus: string | null;
+  createdAt: string | null;
+};
+
+export type BatchJob = {
+  collectorId: number;
+  jobName: string;
+  cronSchedule: string | null;
+  integrationId: string | null;
+  activeYn: string | null;
+  lastRunAt: string | null;
+  createdAt: string | null;
+};
+
 export type BatchSummary = {
   total: number;
   success: number;
@@ -108,7 +141,7 @@ export class ApiError extends Error {
 }
 
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = init.body ? { "Content-Type": "application/json" } : {};
 
   const tenantId = localStorage.getItem("tenantId");
   if (tenantId) headers["X-Tenant-Id"] = tenantId;
@@ -210,10 +243,33 @@ export const api = {
       }),
   },
 
+  rawData: {
+    list: (params?: { batchDate?: string; collectorId?: string; integrationId?: string }) =>
+      req<{ items: RawDataItem[]; total: number }>(`/batch/raw-data${buildQuery(params ?? {})}`),
+    get: (id: number) => req<{ item: RawDataDetail }>(`/batch/raw-data/${id}`),
+    exportJson: () => downloadCsv("/batch/raw-data/export", "raw-data.json"),
+  },
+
+  batchHistory: {
+    list: (params?: { batchDate?: string; crawlingStatus?: string; integrationId?: string }) =>
+      req<{ items: HistoryItem[]; total: number }>(`/batch/history${buildQuery(params ?? {})}`),
+    get: (id: number) => req<{ item: HistoryItem }>(`/batch/history/${id}`),
+    retry: (id: number) => req<{ ok: boolean }>(`/batch/history/${id}/retry`, { method: "POST" }),
+    exportCsv: () => downloadCsv("/batch/history/export", "batch-history.csv"),
+  },
+
   batch: {
     summary: (params?: { startDate?: string; endDate?: string }) =>
       req<BatchSummary>(`/batch/dashboard/summary${buildQuery(params ?? {})}`),
     trends: (params?: { startDate?: string; endDate?: string }) =>
       req<BatchTrends>(`/batch/dashboard/trends${buildQuery(params ?? {})}`),
+    jobs: {
+      list: () => req<{ jobs: BatchJob[] }>("/batch/jobs"),
+      update: (id: number, data: { cronSchedule?: string; activeYn?: string }) =>
+        req<{ job: BatchJob }>(`/batch/jobs/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      run: (id: number) => req<{ ok: boolean }>(`/batch/jobs/${id}/run`, { method: "POST" }),
+      stop: (id: number) => req<{ ok: boolean }>(`/batch/jobs/${id}/stop`, { method: "POST" }),
+      retry: (id: number) => req<{ ok: boolean }>(`/batch/jobs/${id}/retry`, { method: "POST" }),
+    },
   },
 };
