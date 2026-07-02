@@ -82,6 +82,17 @@ export type Analysis = {
 
 export type DateRange = "7d" | "30d" | "90d";
 
+export type ParsedDataItem = {
+  id: number;
+  rawDataId: number | null;
+  fieldName: string | null;
+  fieldValue: string | null;
+  createdAt: string | null;
+  batchDate: string | null;
+  integrationId: string | null;
+  collectorId: number | null;
+};
+
 export type RawDataItem = {
   id: number;
   batchDate: string | null;
@@ -128,6 +139,44 @@ export type BatchSummary = {
 export type BatchTrends = {
   dailyTrend: { date: string; total: number; success: number; failed: number }[];
   integrationDistribution: { integrationId: string; count: number }[];
+};
+
+export type CollectorItem = {
+  collectorId: number; jobName: string; cronSchedule: string | null;
+  integrationId: string | null; tenantId: number | null; activeYn: string | null;
+  lastRunAt: string | null; createdAt: string | null;
+};
+
+export type IntegrationConfigItem = {
+  configId: number; integrationId: string; tenantId: number | null;
+  baseUrl: string | null; authType: string | null;
+  accessKey: string; secretKey: string; token: string; apiKey: string;
+  createdAt: string | null;
+};
+
+export type ParserItem = {
+  parserId: number; integrationId: string; tenantId: number | null;
+  parserClass: string | null; configJson: string | null; createdAt: string | null;
+};
+
+export type NotifConfigItem = {
+  configId: number; tenantId: number; channel: string;
+  configJson: string; enabled: boolean; createdAt: string | null; updatedAt: string | null;
+};
+
+export type NotifHistoryItem = {
+  historyId: number; configId: number; status: string;
+  message: string | null; createdAt: string | null; channel: string | null;
+};
+
+export type AuditItem = {
+  auditId: number; action: string; module: string;
+  oldValue: string | null; newValue: string | null; createdAt: string | null;
+};
+
+export type ScheduledRun = {
+  collectorId: number; jobName: string; integrationId: string | null;
+  cronSchedule: string; lastRunAt: string | null; nextRunAt: string;
 };
 
 export class ApiError extends Error {
@@ -243,6 +292,13 @@ export const api = {
       }),
   },
 
+  parsedData: {
+    list: (params?: { batchDate?: string; collectorId?: string; integrationId?: string; page?: string }) =>
+      req<{ items: ParsedDataItem[]; total: number }>(`/batch/parsed-data${buildQuery(params ?? {})}`),
+    get: (id: number) => req<ParsedDataItem>(`/batch/parsed-data/${id}`),
+    exportCsv: () => downloadCsv("/batch/parsed-data/export", "parsed-data.csv"),
+  },
+
   rawData: {
     list: (params?: { batchDate?: string; collectorId?: string; integrationId?: string }) =>
       req<{ items: RawDataItem[]; total: number }>(`/batch/raw-data${buildQuery(params ?? {})}`),
@@ -256,6 +312,47 @@ export const api = {
     get: (id: number) => req<{ item: HistoryItem }>(`/batch/history/${id}`),
     retry: (id: number) => req<{ ok: boolean }>(`/batch/history/${id}/retry`, { method: "POST" }),
     exportCsv: () => downloadCsv("/batch/history/export", "batch-history.csv"),
+  },
+
+  config: {
+    collectors: {
+      list: () => req<{ collectors: CollectorItem[] }>("/batch/collectors"),
+      create: (data: Record<string, unknown>) => req<{ collector: CollectorItem }>("/batch/collectors", { method: "POST", body: JSON.stringify(data) }),
+      update: (id: number, data: Record<string, unknown>) => req<{ collector: CollectorItem }>(`/batch/collectors/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      delete: (id: number) => req<{ ok: boolean }>(`/batch/collectors/${id}`, { method: "DELETE" }),
+    },
+    integrationConfig: {
+      list: () => req<{ configs: IntegrationConfigItem[] }>("/batch/integration-config"),
+      create: (data: Record<string, unknown>) => req<{ config: IntegrationConfigItem }>("/batch/integration-config", { method: "POST", body: JSON.stringify(data) }),
+      update: (id: number, data: Record<string, unknown>) => req<{ config: IntegrationConfigItem }>(`/batch/integration-config/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      delete: (id: number) => req<{ ok: boolean }>(`/batch/integration-config/${id}`, { method: "DELETE" }),
+    },
+    parsers: {
+      list: () => req<{ parsers: ParserItem[] }>("/batch/parsers"),
+      create: (data: Record<string, unknown>) => req<{ parser: ParserItem }>("/batch/parsers", { method: "POST", body: JSON.stringify(data) }),
+      update: (id: number, data: Record<string, unknown>) => req<{ parser: ParserItem }>(`/batch/parsers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      delete: (id: number) => req<{ ok: boolean }>(`/batch/parsers/${id}`, { method: "DELETE" }),
+    },
+  },
+
+  notifications: {
+    config: {
+      list: () => req<{ configs: NotifConfigItem[] }>("/batch/notifications/config"),
+      create: (data: Record<string, unknown>) => req<{ config: NotifConfigItem }>("/batch/notifications/config", { method: "POST", body: JSON.stringify(data) }),
+      update: (id: number, data: Record<string, unknown>) => req<{ config: NotifConfigItem }>(`/batch/notifications/config/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      delete: (id: number) => req<{ ok: boolean }>(`/batch/notifications/config/${id}`, { method: "DELETE" }),
+    },
+    history: () => req<{ history: NotifHistoryItem[] }>("/batch/notifications/history"),
+  },
+
+  audit: {
+    list: (params?: { action?: string; module?: string }) => req<{ items: AuditItem[]; total: number }>(`/batch/audit${buildQuery(params ?? {})}`),
+    exportCsv: () => downloadCsv("/batch/audit/export", "audit-log.csv"),
+  },
+
+  system: {
+    health: () => req<{ status: string; db: { connected: boolean; latencyMs: number }; checkedAt: string }>("/system/health"),
+    scheduler: () => req<{ status: string; nextRuns: ScheduledRun[] }>("/system/scheduler"),
   },
 
   batch: {

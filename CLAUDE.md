@@ -248,11 +248,11 @@ Defaults seeded in `role_permissions`. Super-admin can change them at runtime.
 | 17 | Job Management Module (FR-2) | ✅ Done |
 | 18 | Execution History Module (FR-3) | ✅ Done |
 | 19 | Raw Data Viewer (FR-4) | ✅ Done |
-| 20 | Parsed Data Viewer (FR-5) | ⬜ |
-| 21 | Integration Configuration Module (FR-6) | ⬜ |
-| 22 | Notification Module (FR-7) | ⬜ |
-| 23 | Audit Log Module (FR-8) | ⬜ |
-| 24 | System Health Monitor (FR-9) | ⬜ |
+| 20 | Parsed Data Viewer (FR-5) | ✅ Done |
+| 21 | Integration Configuration Module (FR-6) | ✅ Done |
+| 22 | Notification Module (FR-7) | ✅ Done |
+| 23 | Audit Log Module (FR-8) | ✅ Done |
+| 24 | System Health Monitor (FR-9) | ✅ Done |
 
 Master PRD issue: #11 on GitHub.
 Batch SRS source: `docs/SRS-cportal-batch-dashboard.md`

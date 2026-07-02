@@ -81,6 +81,24 @@ export function aiInsightsQueryOptions() {
   });
 }
 
+export function parsedDataQueryOptions(params?: { batchDate?: string; collectorId?: string; integrationId?: string; page?: string }) {
+  return queryOptions({
+    queryKey: ["batch", "parsed-data", params],
+    queryFn: () => api.parsedData.list(params),
+    staleTime: 30 * 1000,
+    enabled: hasTenantContext(),
+  });
+}
+
+export function parsedDataDetailQueryOptions(id: number | null) {
+  return queryOptions({
+    queryKey: ["batch", "parsed-data", "detail", id],
+    queryFn: () => api.parsedData.get(id!),
+    staleTime: 60 * 1000,
+    enabled: id !== null && hasTenantContext(),
+  });
+}
+
 export function rawDataQueryOptions(params?: { batchDate?: string; collectorId?: string; integrationId?: string }) {
   return queryOptions({
     queryKey: ["batch", "raw-data", params],

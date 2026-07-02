@@ -12,6 +12,11 @@ import { BatchDashboardPage } from "./pages/BatchDashboardPage";
 import { JobsPage } from "./pages/JobsPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { RawDataPage } from "./pages/RawDataPage";
+import { ParsedDataPage } from "./pages/ParsedDataPage";
+import { ConfigPage } from "./pages/ConfigPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
+import { AuditLogPage } from "./pages/AuditLogPage";
+import { SystemHealthPage } from "./pages/SystemHealthPage";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -113,6 +118,16 @@ const rawDataRoute = createRoute({
   component: RawDataPage,
 });
 
+const parsedDataRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/batch/parsed-data",
+  beforeLoad: async () => {
+    const permission = localStorage.getItem("permission");
+    if (permission !== "it_manager") throw redirect({ to: "/" });
+  },
+  component: ParsedDataPage,
+});
+
 const batchHistoryRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/batch/history",
@@ -121,6 +136,46 @@ const batchHistoryRoute = createRoute({
     if (permission === "employee") throw redirect({ to: "/" });
   },
   component: HistoryPage,
+});
+
+const configRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/batch/config",
+  beforeLoad: async () => {
+    const permission = localStorage.getItem("permission");
+    if (permission !== "it_manager") throw redirect({ to: "/" });
+  },
+  component: ConfigPage,
+});
+
+const notificationsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/batch/notifications",
+  beforeLoad: async () => {
+    const permission = localStorage.getItem("permission");
+    if (permission !== "it_manager") throw redirect({ to: "/" });
+  },
+  component: NotificationsPage,
+});
+
+const auditLogRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/batch/audit",
+  beforeLoad: async () => {
+    const permission = localStorage.getItem("permission");
+    if (permission !== "it_manager") throw redirect({ to: "/" });
+  },
+  component: AuditLogPage,
+});
+
+const systemHealthRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/batch/health",
+  beforeLoad: async () => {
+    const permission = localStorage.getItem("permission");
+    if (permission !== "it_manager") throw redirect({ to: "/" });
+  },
+  component: SystemHealthPage,
 });
 
 export const routeTree = rootRoute.addChildren([
@@ -135,5 +190,10 @@ export const routeTree = rootRoute.addChildren([
     batchJobsRoute,
     batchHistoryRoute,
     rawDataRoute,
+    parsedDataRoute,
+    configRoute,
+    notificationsRoute,
+    auditLogRoute,
+    systemHealthRoute,
   ]),
 ]);

@@ -14,6 +14,11 @@ import {
   BriefcaseBusiness,
   ClockArrowUp,
   FileJson,
+  FileSpreadsheet,
+  Settings,
+  Bell,
+  ClipboardCheck,
+  Activity,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authQueryOptions, tenantsQueryOptions, userPermissionsQueryOptions } from "../lib/queries";
@@ -31,6 +36,11 @@ const NAV = [
   { to: "/batch/jobs", label: "Job Management", icon: BriefcaseBusiness, permissions: ["executive", "it_manager"] },
   { to: "/batch/history", label: "Exec History", icon: ClockArrowUp, permissions: ["it_manager"] },
   { to: "/batch/raw-data", label: "Raw Data", icon: FileJson, permissions: ["it_manager"] },
+  { to: "/batch/parsed-data", label: "Parsed Data", icon: FileSpreadsheet, permissions: ["it_manager"] },
+  { to: "/batch/config", label: "Int. Config", icon: Settings, permissions: ["it_manager"] },
+  { to: "/batch/notifications", label: "Notifications", icon: Bell, permissions: ["it_manager"] },
+  { to: "/batch/audit", label: "Audit Log", icon: ClipboardCheck, permissions: ["it_manager"] },
+  { to: "/batch/health", label: "System Health", icon: Activity, permissions: ["it_manager"] },
 ] as const;
 
 const PERMISSION_LABEL: Record<Permission, string> = {

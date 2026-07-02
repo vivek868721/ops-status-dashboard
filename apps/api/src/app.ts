@@ -13,6 +13,11 @@ import { batchDashboardRoutes } from "./routes/batchDashboard.js";
 import { batchJobsRoutes } from "./routes/batchJobs.js";
 import { batchHistoryRoutes } from "./routes/batchHistory.js";
 import { batchRawDataRoutes } from "./routes/batchRawData.js";
+import { batchParsedDataRoutes } from "./routes/batchParsedData.js";
+import { batchConfigRoutes } from "./routes/batchConfig.js";
+import { batchNotificationsRoutes } from "./routes/batchNotifications.js";
+import { batchAuditRoutes } from "./routes/batchAudit.js";
+import { systemHealthRoutes } from "./routes/systemHealth.js";
 
 export type AppDb = PgDatabase<any, any, any>;
 
@@ -44,6 +49,11 @@ export function buildApp(db: AppDb, opts: { logger?: boolean } = {}) {
   app.register(batchJobsRoutes);
   app.register(batchHistoryRoutes);
   app.register(batchRawDataRoutes);
+  app.register(batchParsedDataRoutes);
+  app.register(batchConfigRoutes);
+  app.register(batchNotificationsRoutes);
+  app.register(batchAuditRoutes);
+  app.register(systemHealthRoutes);
 
   return app;
 }
